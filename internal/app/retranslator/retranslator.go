@@ -1,6 +1,7 @@
 package retranslator
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/napLord/cnm-purchase-api/internal/app/consumer"
@@ -48,11 +49,15 @@ func NewRetranslator(cfg Config) Retranslator {
 		cfg.ConsumeTimeout,
 		cfg.Repo,
 		events)
+
 	producer := producer.NewKafkaProducer(
 		cfg.ProducerCount,
 		cfg.Sender,
 		events,
-		workerPool)
+		cfg.Repo,
+		uint64(cfg.WorkerCount),
+		uint64(cfg.WorkerCount),
+	)
 
 	return &retranslator{
 		events:     events,
@@ -63,12 +68,17 @@ func NewRetranslator(cfg Config) Retranslator {
 }
 
 func (r *retranslator) Start() {
+	fmt.Printf("retranslator starts\n")
 	r.producer.Start()
 	r.consumer.Start()
 }
 
 func (r *retranslator) Close() {
+	fmt.Printf("retranslator closes\n")
 	r.consumer.Close()
+	fmt.Printf("consumer closed\n")
 	r.producer.Close()
+	fmt.Printf("producer closed\n")
 	r.workerPool.StopWait()
+	fmt.Printf("workerpoold closed\n")
 }
