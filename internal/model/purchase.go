@@ -2,7 +2,7 @@ package model
 
 type Purchase struct {
 	ID         uint64
-	totalPrice uint64
+	TotalPrice uint64
 }
 
 type EventType uint8
@@ -25,16 +25,12 @@ type PurchaseEvent struct {
 	Entity *Purchase
 }
 
-func newPurchaseEvent(
+func NewPurchaseEvent(
 	ID uint64,
-	Type EventType,
-	Status EventStatus,
 	Entity *Purchase,
 ) *PurchaseEvent {
 	return &PurchaseEvent{
 		ID:     ID,
-		Type:   Type,
-		Status: Status,
 		Entity: Entity,
 	}
 }
