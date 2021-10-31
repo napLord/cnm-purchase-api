@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -15,10 +16,11 @@ import (
 
 type Producer interface {
 	Start()
-	Close()
 }
 
 type producer struct {
+	ctx context.Context
+
 	n       uint64
 	timeout time.Duration
 
@@ -34,19 +36,18 @@ type producer struct {
 
 // todo for students: add repo
 func NewKafkaProducer(
+	ctx context.Context,
 	n uint64,
 	sender sender.EventSender,
 	events <-chan model.PurchaseEvent,
-	removersCount uint64,
-	unlockersCount uint64,
 	rq *remove_queue.RemoveQueue,
 	uq *unlock_queue.UnlockQueue,
+	wg *sync.WaitGroup,
 ) Producer {
-
-	wg := &sync.WaitGroup{}
 	done := make(chan bool)
 
 	return &producer{
+		ctx:    ctx,
 		n:      n,
 		sender: sender,
 		events: events,
@@ -84,15 +85,10 @@ func (p *producer) Start() {
 							)
 						}
 					}
-				case <-p.done:
+				case <-p.ctx.Done():
 					return
 				}
 			}
 		}()
 	}
-}
-
-func (p *producer) Close() {
-	close(p.done)
-	p.wg.Wait()
 }
