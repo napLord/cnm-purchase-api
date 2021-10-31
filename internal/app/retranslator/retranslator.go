@@ -30,6 +30,9 @@ type Config struct {
 
 	Repo   repo.EventRepo
 	Sender sender.EventSender
+
+	removeTimeout time.Duration
+	unlockTimeout time.Duration
 }
 
 type retranslator struct {
@@ -57,6 +60,8 @@ func NewRetranslator(cfg Config) Retranslator {
 		cfg.Repo,
 		uint64(cfg.WorkerCount),
 		uint64(cfg.WorkerCount),
+		cfg.removeTimeout,
+		cfg.unlockTimeout,
 	)
 
 	return &retranslator{
