@@ -5,9 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/napLord/cnm-purchase-api/internal/app/remove_queue"
 	_ "github.com/napLord/cnm-purchase-api/internal/app/remove_queue"
-	remove_qeueue "github.com/napLord/cnm-purchase-api/internal/app/remove_queue"
-	"github.com/napLord/cnm-purchase-api/internal/app/repo"
 	"github.com/napLord/cnm-purchase-api/internal/app/sender"
 	"github.com/napLord/cnm-purchase-api/internal/model"
 
@@ -29,7 +28,7 @@ type producer struct {
 	wg   *sync.WaitGroup
 	done chan bool
 
-	rq *remove_qeueue.RemoveQueue
+	rq *remove_queue.RemoveQueue
 	uq *unlock_queue.UnlockQueue
 }
 
@@ -38,11 +37,10 @@ func NewKafkaProducer(
 	n uint64,
 	sender sender.EventSender,
 	events <-chan model.PurchaseEvent,
-	repo repo.EventRepo,
 	removersCount uint64,
 	unlockersCount uint64,
-	removeTimeout time.Duration,
-	unlockTimeout time.Duration,
+	rq *remove_queue.RemoveQueue,
+	uq *unlock_queue.UnlockQueue,
 ) Producer {
 
 	wg := &sync.WaitGroup{}
@@ -54,8 +52,8 @@ func NewKafkaProducer(
 		events: events,
 		wg:     wg,
 		done:   done,
-		rq:     remove_qeueue.NewRemoveQueue(repo, removersCount, removeTimeout),
-		uq:     unlock_queue.NewUnlockQueue(repo, unlockersCount, unlockTimeout),
+		rq:     rq,
+		uq:     uq,
 	}
 }
 
@@ -95,8 +93,6 @@ func (p *producer) Start() {
 }
 
 func (p *producer) Close() {
-	p.rq.Close()
-	p.uq.Close()
 	close(p.done)
 	p.wg.Wait()
 }
