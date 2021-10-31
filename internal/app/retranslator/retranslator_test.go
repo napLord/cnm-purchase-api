@@ -19,13 +19,6 @@ import (
 var testTimeout = time.Second * 6
 
 func TestStart(t *testing.T) {
-	//test timeout
-	go func() {
-		time.Sleep(testTimeout)
-
-		panic("test timeout")
-	}()
-
 	//pre
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -157,13 +150,6 @@ func TestStart(t *testing.T) {
 }
 
 func TestBrokenDBUnlock(t *testing.T) {
-	//test timeout
-	go func() {
-		time.Sleep(testTimeout)
-
-		panic("test timeout")
-	}()
-
 	//pre
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -280,13 +266,6 @@ func TestBrokenDBUnlock(t *testing.T) {
 
 //copypaste from TestBrokenDBUnlock
 func TestBrokenDBRemove(t *testing.T) {
-	//test timeout
-	go func() {
-		time.Sleep(testTimeout)
-
-		panic("test timeout")
-	}()
-
 	//pre
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

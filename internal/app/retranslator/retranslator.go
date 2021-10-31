@@ -6,11 +6,11 @@ import (
 
 	"github.com/napLord/cnm-purchase-api/internal/app/consumer"
 	"github.com/napLord/cnm-purchase-api/internal/app/producer"
+	"github.com/napLord/cnm-purchase-api/internal/app/remove_queue"
 	"github.com/napLord/cnm-purchase-api/internal/app/repo"
 	"github.com/napLord/cnm-purchase-api/internal/app/sender"
+	"github.com/napLord/cnm-purchase-api/internal/app/unlock_queue"
 	"github.com/napLord/cnm-purchase-api/internal/model"
-
-	"github.com/gammazero/workerpool"
 )
 
 type Retranslator interface {
@@ -36,15 +36,15 @@ type Config struct {
 }
 
 type retranslator struct {
-	events     chan model.PurchaseEvent
-	consumer   consumer.Consumer
-	producer   producer.Producer
-	workerPool *workerpool.WorkerPool
+	events   chan model.PurchaseEvent
+	consumer consumer.Consumer
+	producer producer.Producer
+	rq       *remove_queue.RemoveQueue
+	uq       *unlock_queue.UnlockQueue
 }
 
 func NewRetranslator(cfg Config) Retranslator {
 	events := make(chan model.PurchaseEvent, cfg.ChannelSize)
-	workerPool := workerpool.New(cfg.WorkerCount)
 
 	consumer := consumer.NewDbConsumer(
 		cfg.ConsumerCount,
@@ -53,22 +53,25 @@ func NewRetranslator(cfg Config) Retranslator {
 		cfg.Repo,
 		events)
 
+	remove_queue := remove_queue.NewRemoveQueue(cfg.Repo, uint64(cfg.WorkerCount), cfg.removeTimeout)
+	unlock_queue := unlock_queue.NewUnlockQueue(cfg.Repo, uint64(cfg.WorkerCount), cfg.unlockTimeout)
+
 	producer := producer.NewKafkaProducer(
 		cfg.ProducerCount,
 		cfg.Sender,
 		events,
-		cfg.Repo,
 		uint64(cfg.WorkerCount),
 		uint64(cfg.WorkerCount),
-		cfg.removeTimeout,
-		cfg.unlockTimeout,
+		remove_queue,
+		unlock_queue,
 	)
 
 	return &retranslator{
-		events:     events,
-		consumer:   consumer,
-		producer:   producer,
-		workerPool: workerPool,
+		events:   events,
+		consumer: consumer,
+		producer: producer,
+		rq:       remove_queue,
+		uq:       unlock_queue,
 	}
 }
 
@@ -82,8 +85,10 @@ func (r *retranslator) Close() {
 	fmt.Printf("retranslator closes\n")
 	r.consumer.Close()
 	fmt.Printf("consumer closed\n")
+	r.rq.Close()
+	fmt.Printf("remove queue closed\n")
+	r.uq.Close()
+	fmt.Printf("unlock queue closed\n")
 	r.producer.Close()
 	fmt.Printf("producer closed\n")
-	r.workerPool.StopWait()
-	fmt.Printf("workerpoold closed\n")
 }
