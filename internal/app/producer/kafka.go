@@ -41,6 +41,8 @@ func NewKafkaProducer(
 	repo repo.EventRepo,
 	removersCount uint64,
 	unlockersCount uint64,
+	removeTimeout time.Duration,
+	unlockTimeout time.Duration,
 ) Producer {
 
 	wg := &sync.WaitGroup{}
@@ -52,8 +54,8 @@ func NewKafkaProducer(
 		events: events,
 		wg:     wg,
 		done:   done,
-		rq:     remove_qeueue.NewRemoveQueue(repo, removersCount),
-		uq:     unlock_queue.NewUnlockQueue(repo, unlockersCount),
+		rq:     remove_qeueue.NewRemoveQueue(repo, removersCount, removeTimeout),
+		uq:     unlock_queue.NewUnlockQueue(repo, unlockersCount, unlockTimeout),
 	}
 }
 

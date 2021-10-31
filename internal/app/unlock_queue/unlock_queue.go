@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/gammazero/workerpool"
 	"github.com/napLord/cnm-purchase-api/internal/app/repo"
@@ -11,7 +12,7 @@ import (
 )
 
 const (
-	MaxParallelEvents = 8
+	MaxParallelEvents = 16
 )
 
 //queue of events to unlock in repo. if event unlock failed, retries it
@@ -27,9 +28,11 @@ type UnlockQueue struct {
 	retryEvents        chan *model.PurchaseEvent
 	retryEventsMaxSize uint64
 	backslash          uint64
+
+	unlockTimeout time.Duration
 }
 
-func NewUnlockQueue(repo repo.EventRepo, parallelFactor uint64) *UnlockQueue {
+func NewUnlockQueue(repo repo.EventRepo, parallelFactor uint64, unlockTimeout time.Duration) *UnlockQueue {
 	ret := &UnlockQueue{
 		repo:               repo,
 		pool:               workerpool.New(int(parallelFactor)),
@@ -39,6 +42,7 @@ func NewUnlockQueue(repo repo.EventRepo, parallelFactor uint64) *UnlockQueue {
 		retryEvents:        make(chan *model.PurchaseEvent, MaxParallelEvents),
 		retryEventsMaxSize: MaxParallelEvents,
 		backslash:          parallelFactor,
+		unlockTimeout:      unlockTimeout,
 	}
 
 	ret.run()
@@ -63,24 +67,51 @@ func (q *UnlockQueue) Unlock(e *model.PurchaseEvent) error {
 }
 
 func (q *UnlockQueue) run() {
-	//add ticker
 	q.running = true
 
 	for i := 0; i < int(q.workersCount); i++ {
 		q.pool.Submit(func() {
+			eventsToUnlock := []*model.PurchaseEvent{}
+
+			unlockEvents := func() {
+				if len(eventsToUnlock) == 0 {
+					return
+				}
+
+				IDsToUnlock := make([]uint64, 0, len(eventsToUnlock))
+
+				for i := 0; i < len(eventsToUnlock); i++ {
+					IDsToUnlock = append(IDsToUnlock, eventsToUnlock[i].ID)
+				}
+
+				err := q.repo.Unlock(IDsToUnlock)
+
+				if err != nil {
+					fmt.Printf("can't unlock events[%v] in repo. why[%v]. retry in  queue\n", IDsToUnlock, err)
+
+					for i := 0; i < len(eventsToUnlock); i++ {
+						q.retryEvents <- eventsToUnlock[i]
+					}
+				}
+
+				eventsToUnlock = eventsToUnlock[:0]
+			}
+
+			ticker := time.NewTicker(q.unlockTimeout)
+
 			for {
+
 				select {
 				case event := <-q.retryEvents:
 					if event != nil {
-						err := q.repo.Unlock([]uint64{event.ID})
-
-						if err != nil {
-							fmt.Printf("can't unlock task[%d] in repo. why[%v]. retry in  queue\n", event.ID, err)
-							q.retryEvents <- event
-						}
+						eventsToUnlock = append(eventsToUnlock, event)
 					}
 
+				case <-ticker.C:
+					unlockEvents()
+
 				case _ = <-q.done:
+					unlockEvents()
 					return
 				}
 			}

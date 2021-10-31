@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,12 +13,15 @@ import (
 	"github.com/napLord/cnm-purchase-api/internal/app/unlock_queue"
 	"github.com/napLord/cnm-purchase-api/internal/mocks"
 	"github.com/napLord/cnm-purchase-api/internal/model"
+	"github.com/stretchr/testify/assert"
 )
+
+var testTimeout = time.Second * 6
 
 func TestStart(t *testing.T) {
 	//test timeout
 	go func() {
-		time.Sleep(time.Second * 10)
+		time.Sleep(testTimeout)
 
 		panic("test timeout")
 	}()
@@ -33,95 +37,112 @@ func TestStart(t *testing.T) {
 		ChannelSize:    512,
 		ConsumerCount:  2,
 		ConsumeSize:    10,
-		ConsumeTimeout: 100 * time.Millisecond,
+		ConsumeTimeout: 400 * time.Millisecond,
 		ProducerCount:  2,
-		WorkerCount:    2,
+		WorkerCount:    1,
 		Repo:           repo,
 		Sender:         sender,
+		removeTimeout:  time.Second,
+		unlockTimeout:  time.Second,
 	}
-	eventsCount := 10
+	eventsCount := 16
 
 	purchase1 := model.Purchase{1, 1}
-	purchase2 := model.Purchase{2, 1}
 
-	eventGoodID := uint64(1)
-	eventBadID := uint64(2)
+	goodSendEvents := map[uint64]struct{}{}
+	badSendEvents := map[uint64]struct{}{}
 
-	eventGoodSend := model.NewPurchaseEvent(eventGoodID, &purchase1)
-	eventBadSend := model.NewPurchaseEvent(eventBadID, &purchase2)
+	removedEvents := map[uint64]struct{}{}
+	unlockedEvents := map[uint64]struct{}{}
+
+	events := []model.PurchaseEvent{}
+	eventsLockIdx := uint64(0)
+
+	for i := 0; i < eventsCount; i++ {
+		if i%2 == 0 {
+			badSendEvents[uint64(i)] = struct{}{}
+		} else {
+			goodSendEvents[uint64(i)] = struct{}{}
+		}
+
+		events = append(events, *model.NewPurchaseEvent(uint64(i), &purchase1))
+	}
 
 	//expect behaviour
 
-	//expects eventsCount/2 locks. returns events that won't fail on send
+	//expects lock. returns eventsCount events
 	repo.EXPECT().
 		Lock(gomock.Any()).
-		Times(eventsCount / 2).
+		Times(eventsCount).
 		DoAndReturn(
 			func(n uint64) ([]model.PurchaseEvent, error) {
-				return []model.PurchaseEvent{*eventGoodSend}, nil
-			},
-		)
+				ret := []model.PurchaseEvent{events[eventsLockIdx]}
 
-	//expects eventsCount/2 locks. returns events that WILL fail on send
-	repo.EXPECT().
-		Lock(gomock.Any()).
-		Times(eventsCount / 2).
-		DoAndReturn(
-			func(n uint64) ([]model.PurchaseEvent, error) {
-				return []model.PurchaseEvent{*eventBadSend}, nil
+				atomic.AddUint64(&eventsLockIdx, 1)
+
+				return ret, nil
 			},
 		)
 
 	//expects locks after
 	repo.EXPECT().Lock(gomock.Any()).AnyTimes()
 
-	wg := &sync.WaitGroup{}
-	wg.Add(eventsCount) //generates
-
-	//expects eventsCount/2 sends with bad events. return with error
+	//expects eventsCount sends.
+	//return err if events is bad or nil if event is good
 	sendBad := sender.EXPECT().
-		Send(eventBadSend).
-		Times(eventsCount / 2).
+		Send(gomock.Any()).
+		AnyTimes().
 		DoAndReturn(func(e *model.PurchaseEvent) error {
-			fmt.Printf("called Send! with e[%v]. responding with err\n", e)
+			fmt.Printf("called Send! with e[%v]\n", e)
 
-			return errors.New("send failed")
-		})
-
-	//expects eventsCount/2 sends with good events. return nil
-	sendGood := sender.EXPECT().
-		Send(eventGoodSend).
-		Times(eventsCount / 2).
-		DoAndReturn(func(e *model.PurchaseEvent) error {
-			fmt.Printf("called Send! with e[%v]. responding good\n", e)
+			if _, ok := goodSendEvents[e.ID]; !ok {
+				return errors.New("send failed. bad event")
+			}
 
 			return nil
 		})
 
-	sender.EXPECT().Send(gomock.Any()).AnyTimes().After(sendBad).After(sendGood)
+	sender.EXPECT().Send(gomock.Any()).AnyTimes().After(sendBad)
 
-	//expects eventsCount/2 removes as we got eventsCount/2 good sends
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	//expects removes as we got good sends
 	removeCalls := repo.EXPECT().
-		Remove([]uint64{eventGoodID}).
-		Times(eventsCount / 2).
+		Remove(gomock.Any()).
+		AnyTimes().
 		Do(func(eventIDs []uint64) error {
-			wg.Done()
-
 			fmt.Printf("called Remove!with ids[%v]\n", eventIDs)
+
+			for _, k := range eventIDs {
+				removedEvents[k] = struct{}{}
+			}
+
+			if len(removedEvents) == len(goodSendEvents) {
+				assert.Equal(t, removedEvents, goodSendEvents)
+				defer wg.Done()
+			}
 
 			return nil
 		})
 
 	repo.EXPECT().Remove(gomock.Any()).AnyTimes().After(removeCalls)
 
-	//expects eventsCount/2 unlocks as we got eventsCount/2 bad sends
+	//expects  unlocks as we got bad sends
 	unlockCalls := repo.EXPECT().
-		Unlock([]uint64{eventBadID}).
-		Times(eventsCount / 2).
+		Unlock(gomock.Any()).
+		AnyTimes().
 		Do(func(eventIDs []uint64) error {
-			wg.Done()
-
 			fmt.Printf("called Unlock!with ids[%v]\n", eventIDs)
+
+			for _, k := range eventIDs {
+				unlockedEvents[k] = struct{}{}
+			}
+
+			if len(unlockedEvents) == len(badSendEvents) {
+				assert.Equal(t, unlockedEvents, badSendEvents)
+				defer wg.Done()
+			}
 
 			return nil
 		})
@@ -138,7 +159,7 @@ func TestStart(t *testing.T) {
 func TestBrokenDBUnlock(t *testing.T) {
 	//test timeout
 	go func() {
-		time.Sleep(time.Second * 5)
+		time.Sleep(testTimeout)
 
 		panic("test timeout")
 	}()
@@ -159,23 +180,41 @@ func TestBrokenDBUnlock(t *testing.T) {
 		WorkerCount:    2,
 		Repo:           repo,
 		Sender:         sender,
+		removeTimeout:  200 * time.Millisecond,
+		unlockTimeout:  200 * time.Millisecond,
 	}
 
 	purchase1 := model.Purchase{1, 1}
-	eventID := uint64(1)
-	event1 := model.NewPurchaseEvent(eventID, &purchase1)
 
 	eventsCount := unlock_queue.MaxParallelEvents / 2
 
+	unlockFailedCount := 10
+
+	unlockedEvents := map[uint64]struct{}{}
+
+	events := []model.PurchaseEvent{}
+	eventsID := map[uint64]struct{}{}
+	eventsLockIdx := uint64(0)
+
+	for i := 0; i < eventsCount; i++ {
+		events = append(events, *model.NewPurchaseEvent(uint64(i), &purchase1))
+
+		eventsID[uint64(i)] = struct{}{}
+	}
+
 	//expect behaviour
 
-	//lock 1 event eventsCount times. we expect them to be unlocked due to bad sends
+	//lock 1 event eventsCount times. we expect them to be unlocked further due to bad sends
 	lockWithGoodEv := repo.EXPECT().
 		Lock(gomock.Any()).
 		Times(eventsCount).
 		DoAndReturn(
 			func(n uint64) ([]model.PurchaseEvent, error) {
-				return []model.PurchaseEvent{*event1}, nil
+				ret := []model.PurchaseEvent{events[eventsLockIdx]}
+
+				atomic.AddUint64(&eventsLockIdx, 1)
+
+				return ret, nil
 			},
 		)
 
@@ -183,11 +222,11 @@ func TestBrokenDBUnlock(t *testing.T) {
 	repo.EXPECT().Lock(gomock.Any()).AnyTimes().After(lockWithGoodEv)
 
 	wg := &sync.WaitGroup{}
-	wg.Add(eventsCount)
+	wg.Add(1)
 
 	//expects eventsCount sends. sends are bad so return with error
 	sendBad := sender.EXPECT().
-		Send(event1).
+		Send(gomock.Any()).
 		Times(eventsCount).
 		DoAndReturn(func(e *model.PurchaseEvent) error {
 			fmt.Printf("called Send! with e[%v]. responding with err\n", e)
@@ -198,10 +237,10 @@ func TestBrokenDBUnlock(t *testing.T) {
 	sender.EXPECT().Send(gomock.Any()).AnyTimes().After(sendBad)
 
 	//expects Unlocks of events.
-	//emulating broken unlock. so respons with error eventsCout * 2 times
+	//emulating broken unlock. so respons with error unlockFailedCount times
 	unlockCallsBad := repo.EXPECT().
-		Unlock([]uint64{eventID}).
-		Times(eventsCount * 2).
+		Unlock(gomock.Any()).
+		Times(unlockFailedCount).
 		DoAndReturn(func(eventIDs []uint64) error {
 			fmt.Printf("called Unlock!with ids[%v]. responding with error\n", eventIDs)
 
@@ -210,13 +249,22 @@ func TestBrokenDBUnlock(t *testing.T) {
 
 	//extepcts good eventsCount unlocks
 	unlockCallsGood := repo.EXPECT().
-		Unlock([]uint64{eventID}).
-		Times(eventsCount).
+		Unlock(gomock.Any()).
+		AnyTimes().
 		After(unlockCallsBad).
 		DoAndReturn(func(eventIDs []uint64) error {
-			wg.Done()
+			fmt.Printf("called Unlock!with ids[%v].\n", eventIDs)
 
-			fmt.Printf("called Unlock!with ids[%v]\n", eventIDs)
+			for _, k := range eventIDs {
+				unlockedEvents[k] = struct{}{}
+			}
+
+			fmt.Printf("unlockedEvents[%v]\n", eventIDs)
+
+			if len(unlockedEvents) == len(eventsID) {
+				assert.Equal(t, unlockedEvents, eventsID)
+				defer wg.Done()
+			}
 
 			return nil
 		})
@@ -234,7 +282,7 @@ func TestBrokenDBUnlock(t *testing.T) {
 func TestBrokenDBRemove(t *testing.T) {
 	//test timeout
 	go func() {
-		time.Sleep(time.Second * 5)
+		time.Sleep(testTimeout)
 
 		panic("test timeout")
 	}()
@@ -255,23 +303,41 @@ func TestBrokenDBRemove(t *testing.T) {
 		WorkerCount:    2,
 		Repo:           repo,
 		Sender:         sender,
+		removeTimeout:  200 * time.Millisecond,
+		unlockTimeout:  200 * time.Millisecond,
 	}
 
 	purchase1 := model.Purchase{1, 1}
-	eventID := uint64(1)
-	event1 := model.NewPurchaseEvent(eventID, &purchase1)
 
 	eventsCount := remove_queue.MaxParallelEvents / 2
 
+	removeFailedCount := 10
+
+	removeedEvents := map[uint64]struct{}{}
+
+	events := []model.PurchaseEvent{}
+	eventsID := map[uint64]struct{}{}
+	eventsLockIdx := uint64(0)
+
+	for i := 0; i < eventsCount; i++ {
+		events = append(events, *model.NewPurchaseEvent(uint64(i), &purchase1))
+
+		eventsID[uint64(i)] = struct{}{}
+	}
+
 	//expect behaviour
 
-	//lock 1 event eventsCount times. we expect them to be removed due to good sends
+	//lock 1 event eventsCount times. we expect them to be further removeed due to bad sends
 	lockWithGoodEv := repo.EXPECT().
 		Lock(gomock.Any()).
 		Times(eventsCount).
 		DoAndReturn(
 			func(n uint64) ([]model.PurchaseEvent, error) {
-				return []model.PurchaseEvent{*event1}, nil
+				ret := []model.PurchaseEvent{events[eventsLockIdx]}
+
+				atomic.AddUint64(&eventsLockIdx, 1)
+
+				return ret, nil
 			},
 		)
 
@@ -279,14 +345,14 @@ func TestBrokenDBRemove(t *testing.T) {
 	repo.EXPECT().Lock(gomock.Any()).AnyTimes().After(lockWithGoodEv)
 
 	wg := &sync.WaitGroup{}
-	wg.Add(eventsCount)
+	wg.Add(1)
 
 	//expects eventsCount sends. sends are bad so return with error
 	sendBad := sender.EXPECT().
-		Send(event1).
+		Send(gomock.Any()).
 		Times(eventsCount).
 		DoAndReturn(func(e *model.PurchaseEvent) error {
-			fmt.Printf("called Send! with e[%v]\n", e)
+			fmt.Printf("called Send! with e[%v]. responding good\n", e)
 
 			return nil
 		})
@@ -294,25 +360,34 @@ func TestBrokenDBRemove(t *testing.T) {
 	sender.EXPECT().Send(gomock.Any()).AnyTimes().After(sendBad)
 
 	//expects Removes of events.
-	//emulating broken Remove. so respons with error eventsCount * 2 times
+	//emulating broken remove. so respons with error removeFailedCount times
 	removeCallsBad := repo.EXPECT().
-		Remove([]uint64{eventID}).
-		Times(eventsCount * 2).
+		Remove(gomock.Any()).
+		Times(removeFailedCount).
 		DoAndReturn(func(eventIDs []uint64) error {
-			fmt.Printf("called Remove! with ids[%v]. responding with error\n", eventIDs)
+			fmt.Printf("called Remove!with ids[%v]. responding with error\n", eventIDs)
 
 			return errors.New(fmt.Sprintf("db can't remove events id[%v]\n", eventIDs))
 		})
 
-	//expects good eventsCount removes
+	//extepcts good eventsCount removes
 	removeCallsGood := repo.EXPECT().
-		Remove([]uint64{eventID}).
-		Times(eventsCount).
+		Remove(gomock.Any()).
+		AnyTimes().
 		After(removeCallsBad).
 		DoAndReturn(func(eventIDs []uint64) error {
-			wg.Done()
+			fmt.Printf("called Remove!with ids[%v].\n", eventIDs)
 
-			fmt.Printf("called Remove!with ids[%v]\n", eventIDs)
+			for _, k := range eventIDs {
+				removeedEvents[k] = struct{}{}
+			}
+
+			fmt.Printf("removeedEvents[%v]\n", eventIDs)
+
+			if len(removeedEvents) == len(eventsID) {
+				assert.Equal(t, removeedEvents, eventsID)
+				defer wg.Done()
+			}
 
 			return nil
 		})

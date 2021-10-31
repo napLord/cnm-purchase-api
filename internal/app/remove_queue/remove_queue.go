@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/gammazero/workerpool"
 	"github.com/napLord/cnm-purchase-api/internal/app/repo"
@@ -11,7 +12,7 @@ import (
 )
 
 const (
-	MaxParallelEvents = 8
+	MaxParallelEvents = 16
 )
 
 //queue of events to remove in repo. if event remove failed, retries it
@@ -27,9 +28,11 @@ type RemoveQueue struct {
 	retryEvents        chan *model.PurchaseEvent
 	retryEventsMaxSize uint64
 	backslash          uint64
+
+	removeTimeout time.Duration
 }
 
-func NewRemoveQueue(repo repo.EventRepo, parallelFactor uint64) *RemoveQueue {
+func NewRemoveQueue(repo repo.EventRepo, parallelFactor uint64, removeTimeout time.Duration) *RemoveQueue {
 	ret := &RemoveQueue{
 		repo:               repo,
 		pool:               workerpool.New(int(parallelFactor)),
@@ -39,6 +42,7 @@ func NewRemoveQueue(repo repo.EventRepo, parallelFactor uint64) *RemoveQueue {
 		retryEvents:        make(chan *model.PurchaseEvent, MaxParallelEvents),
 		retryEventsMaxSize: MaxParallelEvents,
 		backslash:          parallelFactor,
+		removeTimeout:      removeTimeout,
 	}
 
 	ret.run()
@@ -63,24 +67,51 @@ func (q *RemoveQueue) Remove(e *model.PurchaseEvent) error {
 }
 
 func (q *RemoveQueue) run() {
-	//add ticker
 	q.running = true
 
 	for i := 0; i < int(q.workersCount); i++ {
 		q.pool.Submit(func() {
+			eventsToRemove := []*model.PurchaseEvent{}
+
+			removeEvents := func() {
+				if len(eventsToRemove) == 0 {
+					return
+				}
+
+				IDsToRemove := make([]uint64, 0, len(eventsToRemove))
+
+				for i := 0; i < len(eventsToRemove); i++ {
+					IDsToRemove = append(IDsToRemove, eventsToRemove[i].ID)
+				}
+
+				err := q.repo.Remove(IDsToRemove)
+
+				if err != nil {
+					fmt.Printf("can't remove events[%v] in repo. why[%v]. retry in  queue\n", IDsToRemove, err)
+
+					for i := 0; i < len(eventsToRemove); i++ {
+						q.retryEvents <- eventsToRemove[i]
+					}
+				}
+
+				eventsToRemove = eventsToRemove[:0]
+			}
+
+			ticker := time.NewTicker(q.removeTimeout)
+
 			for {
+
 				select {
 				case event := <-q.retryEvents:
 					if event != nil {
-						err := q.repo.Remove([]uint64{event.ID})
-
-						if err != nil {
-							fmt.Printf("can't remove task[%d] in repo. why[%v]. retry in  queue\n", event.ID, err)
-							q.retryEvents <- event
-						}
+						eventsToRemove = append(eventsToRemove, event)
 					}
 
+				case <-ticker.C:
+					removeEvents()
+
 				case _ = <-q.done:
+					removeEvents()
 					return
 				}
 			}
