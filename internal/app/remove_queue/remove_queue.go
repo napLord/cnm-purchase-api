@@ -1,6 +1,7 @@
 package remove_queue
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -17,13 +18,14 @@ const (
 
 //queue of events to remove in repo. if event remove failed, retries it
 type RemoveQueue struct {
+	ctx context.Context
+
 	repo         repo.EventRepo
 	pool         *workerpool.WorkerPool
 	running      bool
 	workersCount uint64
 
-	done chan struct{}
-	wg   *sync.WaitGroup
+	wg *sync.WaitGroup
 
 	retryEvents        chan *model.PurchaseEvent
 	retryEventsMaxSize uint64
@@ -32,17 +34,24 @@ type RemoveQueue struct {
 	removeTimeout time.Duration
 }
 
-func NewRemoveQueue(repo repo.EventRepo, parallelFactor uint64, removeTimeout time.Duration) *RemoveQueue {
+func NewRemoveQueue(
+	ctx context.Context,
+	repo repo.EventRepo,
+	parallelFactor uint64,
+	removeTimeout time.Duration,
+	wg *sync.WaitGroup,
+) *RemoveQueue {
 	ret := &RemoveQueue{
+		ctx:                ctx,
 		repo:               repo,
 		pool:               workerpool.New(int(parallelFactor)),
 		running:            false,
 		workersCount:       parallelFactor,
-		done:               make(chan struct{}),
 		retryEvents:        make(chan *model.PurchaseEvent, MaxParallelEvents),
 		retryEventsMaxSize: MaxParallelEvents,
 		backslash:          parallelFactor,
 		removeTimeout:      removeTimeout,
+		wg:                 wg,
 	}
 
 	ret.run()
@@ -69,8 +78,26 @@ func (q *RemoveQueue) Remove(e *model.PurchaseEvent) error {
 func (q *RemoveQueue) run() {
 	q.running = true
 
+	close := func() {
+		q.wg.Add(1)
+		defer q.wg.Done()
+
+		_ = <-q.ctx.Done()
+
+		q.running = false
+		close(q.retryEvents)
+		q.pool.StopWait()
+
+		fmt.Printf("remove queue closed\n")
+	}
+	go close()
+
 	for i := 0; i < int(q.workersCount); i++ {
+		q.wg.Add(1)
+
 		q.pool.Submit(func() {
+			defer q.wg.Done()
+
 			eventsToRemove := []*model.PurchaseEvent{}
 
 			removeEvents := func() {
@@ -108,20 +135,14 @@ func (q *RemoveQueue) run() {
 					}
 
 				case <-ticker.C:
+					fmt.Printf("ticker triggered. remove()\n")
 					removeEvents()
 
-				case _ = <-q.done:
+				case _ = <-q.ctx.Done():
 					removeEvents()
 					return
 				}
 			}
 		})
 	}
-}
-
-func (q *RemoveQueue) Close() {
-	q.running = false
-	close(q.retryEvents)
-	close(q.done)
-	q.pool.StopWait()
 }

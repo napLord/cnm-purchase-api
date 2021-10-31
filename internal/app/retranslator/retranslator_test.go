@@ -86,11 +86,13 @@ func TestStart(t *testing.T) {
 		Send(gomock.Any()).
 		AnyTimes().
 		DoAndReturn(func(e *model.PurchaseEvent) error {
-			fmt.Printf("called Send! with e[%v]\n", e)
-
 			if _, ok := goodSendEvents[e.ID]; !ok {
+				fmt.Printf("called Send! with e[%v]. return err\n", e)
+
 				return errors.New("send failed. bad event")
 			}
+
+			fmt.Printf("called Send! with e[%v]. return good\n", e)
 
 			return nil
 		})

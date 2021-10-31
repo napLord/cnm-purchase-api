@@ -1,6 +1,7 @@
 package unlock_queue
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -17,13 +18,14 @@ const (
 
 //queue of events to unlock in repo. if event unlock failed, retries it
 type UnlockQueue struct {
+	ctx context.Context
+
 	repo         repo.EventRepo
 	pool         *workerpool.WorkerPool
 	running      bool
 	workersCount uint64
 
-	done chan struct{}
-	wg   *sync.WaitGroup
+	wg *sync.WaitGroup
 
 	retryEvents        chan *model.PurchaseEvent
 	retryEventsMaxSize uint64
@@ -32,17 +34,24 @@ type UnlockQueue struct {
 	unlockTimeout time.Duration
 }
 
-func NewUnlockQueue(repo repo.EventRepo, parallelFactor uint64, unlockTimeout time.Duration) *UnlockQueue {
+func NewUnlockQueue(
+	ctx context.Context,
+	repo repo.EventRepo,
+	parallelFactor uint64,
+	unlockTimeout time.Duration,
+	wg *sync.WaitGroup,
+) *UnlockQueue {
 	ret := &UnlockQueue{
+		ctx:                ctx,
 		repo:               repo,
 		pool:               workerpool.New(int(parallelFactor)),
 		running:            false,
 		workersCount:       parallelFactor,
-		done:               make(chan struct{}),
 		retryEvents:        make(chan *model.PurchaseEvent, MaxParallelEvents),
 		retryEventsMaxSize: MaxParallelEvents,
 		backslash:          parallelFactor,
 		unlockTimeout:      unlockTimeout,
+		wg:                 wg,
 	}
 
 	ret.run()
@@ -69,8 +78,26 @@ func (q *UnlockQueue) Unlock(e *model.PurchaseEvent) error {
 func (q *UnlockQueue) run() {
 	q.running = true
 
+	close := func() {
+		q.wg.Add(1)
+		defer q.wg.Done()
+
+		_ = <-q.ctx.Done()
+
+		q.running = false
+		close(q.retryEvents)
+		q.pool.StopWait()
+
+		fmt.Printf("unlock queue closed\n")
+	}
+	go close()
+
 	for i := 0; i < int(q.workersCount); i++ {
+		q.wg.Add(1)
+
 		q.pool.Submit(func() {
+			defer q.wg.Done()
+
 			eventsToUnlock := []*model.PurchaseEvent{}
 
 			unlockEvents := func() {
@@ -110,18 +137,11 @@ func (q *UnlockQueue) run() {
 				case <-ticker.C:
 					unlockEvents()
 
-				case _ = <-q.done:
+				case _ = <-q.ctx.Done():
 					unlockEvents()
 					return
 				}
 			}
 		})
 	}
-}
-
-func (q *UnlockQueue) Close() {
-	q.running = false
-	close(q.retryEvents)
-	close(q.done)
-	q.pool.StopWait()
 }

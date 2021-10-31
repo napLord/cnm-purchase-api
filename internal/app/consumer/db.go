@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -11,7 +12,6 @@ import (
 
 type Consumer interface {
 	Start()
-	Close()
 }
 
 type consumer struct {
@@ -25,6 +25,7 @@ type consumer struct {
 
 	done chan bool
 	wg   *sync.WaitGroup
+	ctx  context.Context
 }
 
 type Config struct {
@@ -36,16 +37,19 @@ type Config struct {
 }
 
 func NewDbConsumer(
+	ctx context.Context,
 	n uint64,
 	batchSize uint64,
 	consumeTimeout time.Duration,
 	repo repo.EventRepo,
-	events chan<- model.PurchaseEvent) Consumer {
+	events chan<- model.PurchaseEvent,
+	wg *sync.WaitGroup,
+) Consumer {
 
-	wg := &sync.WaitGroup{}
 	done := make(chan bool)
 
 	return &consumer{
+		ctx:       ctx,
 		n:         n,
 		batchSize: batchSize,
 		timeout:   consumeTimeout,
@@ -75,18 +79,15 @@ func (c *consumer) Start() {
 					if err != nil {
 						continue
 					}
+
 					for _, event := range events {
 						c.events <- event
 					}
-				case <-c.done:
+
+				case <-c.ctx.Done():
 					return
 				}
 			}
 		}()
 	}
-}
-
-func (c *consumer) Close() {
-	close(c.done)
-	c.wg.Wait()
 }

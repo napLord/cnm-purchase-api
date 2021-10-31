@@ -1,7 +1,9 @@
 package retranslator
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/napLord/cnm-purchase-api/internal/app/consumer"
@@ -41,37 +43,61 @@ type retranslator struct {
 	producer producer.Producer
 	rq       *remove_queue.RemoveQueue
 	uq       *unlock_queue.UnlockQueue
+
+	cancelFunc context.CancelFunc
+	wg         *sync.WaitGroup
 }
 
 func NewRetranslator(cfg Config) Retranslator {
 	events := make(chan model.PurchaseEvent, cfg.ChannelSize)
 
+	wg := &sync.WaitGroup{}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+
 	consumer := consumer.NewDbConsumer(
+		ctx,
 		cfg.ConsumerCount,
 		cfg.ConsumeSize,
 		cfg.ConsumeTimeout,
 		cfg.Repo,
-		events)
+		events,
+		wg,
+	)
 
-	remove_queue := remove_queue.NewRemoveQueue(cfg.Repo, uint64(cfg.WorkerCount), cfg.removeTimeout)
-	unlock_queue := unlock_queue.NewUnlockQueue(cfg.Repo, uint64(cfg.WorkerCount), cfg.unlockTimeout)
+	remove_queue := remove_queue.NewRemoveQueue(
+		ctx,
+		cfg.Repo,
+		uint64(cfg.WorkerCount),
+		cfg.removeTimeout,
+		wg,
+	)
+
+	unlock_queue := unlock_queue.NewUnlockQueue(
+		ctx,
+		cfg.Repo,
+		uint64(cfg.WorkerCount),
+		cfg.unlockTimeout,
+		wg,
+	)
 
 	producer := producer.NewKafkaProducer(
+		ctx,
 		cfg.ProducerCount,
 		cfg.Sender,
 		events,
-		uint64(cfg.WorkerCount),
-		uint64(cfg.WorkerCount),
 		remove_queue,
 		unlock_queue,
+		wg,
 	)
 
 	return &retranslator{
-		events:   events,
-		consumer: consumer,
-		producer: producer,
-		rq:       remove_queue,
-		uq:       unlock_queue,
+		events:     events,
+		consumer:   consumer,
+		producer:   producer,
+		rq:         remove_queue,
+		uq:         unlock_queue,
+		wg:         wg,
+		cancelFunc: cancelFunc,
 	}
 }
 
@@ -82,13 +108,9 @@ func (r *retranslator) Start() {
 }
 
 func (r *retranslator) Close() {
-	fmt.Printf("retranslator closes\n")
-	r.consumer.Close()
-	fmt.Printf("consumer closed\n")
-	r.rq.Close()
-	fmt.Printf("remove queue closed\n")
-	r.uq.Close()
-	fmt.Printf("unlock queue closed\n")
-	r.producer.Close()
-	fmt.Printf("producer closed\n")
+	r.cancelFunc()
+
+	r.wg.Wait()
+
+	fmt.Printf("retranslator closed\n")
 }
