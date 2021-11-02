@@ -71,13 +71,9 @@ func (c *consumer) Start() {
 			for {
 				select {
 				case <-ticker.C:
-					if cap(c.events)-len(c.events) < int(c.batchSize) {
-						fmt.Printf("can't lock events, eventsQueue channel is almost full\n")
-						continue
-					}
-
 					events, err := c.repo.Lock(c.batchSize)
 					if err != nil {
+						fmt.Printf("can't Lock events. why[%v]", err)
 						continue
 					}
 
