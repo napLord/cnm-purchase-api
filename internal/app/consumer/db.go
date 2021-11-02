@@ -12,6 +12,7 @@ import (
 
 type Consumer interface {
 	Start()
+	Close()
 }
 
 type consumer struct {
@@ -24,8 +25,9 @@ type consumer struct {
 	timeout   time.Duration
 
 	done chan bool
-	wg   *sync.WaitGroup
 	ctx  context.Context
+
+	wg sync.WaitGroup
 }
 
 type Config struct {
@@ -43,7 +45,6 @@ func NewDbConsumer(
 	consumeTimeout time.Duration,
 	repo repo.EventRepo,
 	events chan<- model.PurchaseEvent,
-	wg *sync.WaitGroup,
 ) Consumer {
 
 	done := make(chan bool)
@@ -55,7 +56,7 @@ func NewDbConsumer(
 		timeout:   consumeTimeout,
 		repo:      repo,
 		events:    events,
-		wg:        wg,
+		wg:        sync.WaitGroup{},
 		done:      done,
 	}
 }
@@ -90,4 +91,10 @@ func (c *consumer) Start() {
 			}
 		}()
 	}
+}
+
+func (c *consumer) Close() {
+	fmt.Printf("consumer closing\n")
+	c.wg.Wait()
+	fmt.Printf("consumer closed\n")
 }

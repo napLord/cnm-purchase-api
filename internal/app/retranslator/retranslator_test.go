@@ -1,6 +1,7 @@
 package retranslator
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/napLord/cnm-purchase-api/internal/app/closer"
 	"github.com/napLord/cnm-purchase-api/internal/app/remove_queue"
 	"github.com/napLord/cnm-purchase-api/internal/app/unlock_queue"
 	"github.com/napLord/cnm-purchase-api/internal/mocks"
@@ -61,22 +63,53 @@ func TestStart(t *testing.T) {
 		events = append(events, *model.NewPurchaseEvent(uint64(i), &purchase1))
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
+	clr := closer.NewCloser()
+
+	clr.Add(func() {
+		cancel()
+	})
+
 	//expect behaviour
 
+	lockmx := sync.Mutex{}
 	//expects lock. returns eventsCount events
-	repo.EXPECT().
+	Locks := repo.EXPECT().
 		Lock(gomock.Any()).
 		Times(eventsCount).
 		DoAndReturn(
 			func(n uint64) ([]model.PurchaseEvent, error) {
+				lockmx.Lock()
+
 				ret := []model.PurchaseEvent{events[eventsLockIdx]}
 
 				atomic.AddUint64(&eventsLockIdx, 1)
+
+				lockmx.Unlock()
 
 				return ret, nil
 			},
 		)
 
+	wg := &sync.WaitGroup{}
+	wg.Add(3)
+
+	//expects one Lock but this time we call closer for gracefull timeout check
+	repo.EXPECT().
+		Lock(gomock.Any()).
+		Times(1).
+		After(Locks).
+		Do(
+			func(n uint64) ([]model.PurchaseEvent, error) {
+				go func() {
+					defer wg.Done()
+					clr.RunAll()
+				}()
+
+				return nil, nil
+			},
+		)
 	//expects locks after
 	repo.EXPECT().Lock(gomock.Any()).AnyTimes()
 
@@ -98,9 +131,6 @@ func TestStart(t *testing.T) {
 		})
 
 	sender.EXPECT().Send(gomock.Any()).AnyTimes().After(sendBad)
-
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
 
 	//expects removes as we got good sends
 	removeCalls := repo.EXPECT().
@@ -144,9 +174,8 @@ func TestStart(t *testing.T) {
 
 	repo.EXPECT().Unlock(gomock.Any()).AnyTimes().After(unlockCalls)
 
-	retranslator := NewRetranslator(cfg)
+	retranslator := NewRetranslator(ctx, clr, cfg)
 	retranslator.Start()
-	defer retranslator.Close()
 
 	wg.Wait()
 }
@@ -178,6 +207,7 @@ func TestBrokenDBUnlock(t *testing.T) {
 
 	unlockFailedCount := 10
 
+	unlockedEventsMx := sync.Mutex{}
 	unlockedEvents := map[uint64]struct{}{}
 
 	events := []model.PurchaseEvent{}
@@ -192,15 +222,19 @@ func TestBrokenDBUnlock(t *testing.T) {
 
 	//expect behaviour
 
+	lockmx := sync.Mutex{}
 	//lock 1 event eventsCount times. we expect them to be unlocked further due to bad sends
 	lockWithGoodEv := repo.EXPECT().
 		Lock(gomock.Any()).
 		Times(eventsCount).
 		DoAndReturn(
 			func(n uint64) ([]model.PurchaseEvent, error) {
+				lockmx.Lock()
 				ret := []model.PurchaseEvent{events[eventsLockIdx]}
 
 				atomic.AddUint64(&eventsLockIdx, 1)
+
+				lockmx.Unlock()
 
 				return ret, nil
 			},
@@ -243,6 +277,7 @@ func TestBrokenDBUnlock(t *testing.T) {
 		DoAndReturn(func(eventIDs []uint64) error {
 			fmt.Printf("called Unlock!with ids[%v].\n", eventIDs)
 
+			unlockedEventsMx.Lock()
 			for _, k := range eventIDs {
 				unlockedEvents[k] = struct{}{}
 			}
@@ -254,14 +289,24 @@ func TestBrokenDBUnlock(t *testing.T) {
 				defer wg.Done()
 			}
 
+			unlockedEventsMx.Unlock()
+
 			return nil
 		})
 
 	repo.EXPECT().Unlock(gomock.Any()).AnyTimes().After(unlockCallsGood).After(unlockCallsBad)
 
-	retranslator := NewRetranslator(cfg)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	clr := closer.NewCloser()
+	defer clr.RunAll()
+
+	clr.Add(func() {
+		cancel()
+	})
+
+	retranslator := NewRetranslator(ctx, clr, cfg)
 	retranslator.Start()
-	defer retranslator.Close()
 
 	wg.Wait()
 }
@@ -294,6 +339,7 @@ func TestBrokenDBRemove(t *testing.T) {
 
 	removeFailedCount := 10
 
+	removeedEventsMx := sync.Mutex{}
 	removeedEvents := map[uint64]struct{}{}
 
 	events := []model.PurchaseEvent{}
@@ -308,15 +354,18 @@ func TestBrokenDBRemove(t *testing.T) {
 
 	//expect behaviour
 
+	lockmx := sync.Mutex{}
 	//lock 1 event eventsCount times. we expect them to be further removeed due to bad sends
 	lockWithGoodEv := repo.EXPECT().
 		Lock(gomock.Any()).
 		Times(eventsCount).
 		DoAndReturn(
 			func(n uint64) ([]model.PurchaseEvent, error) {
+				lockmx.Lock()
 				ret := []model.PurchaseEvent{events[eventsLockIdx]}
 
 				atomic.AddUint64(&eventsLockIdx, 1)
+				lockmx.Unlock()
 
 				return ret, nil
 			},
@@ -359,6 +408,7 @@ func TestBrokenDBRemove(t *testing.T) {
 		DoAndReturn(func(eventIDs []uint64) error {
 			fmt.Printf("called Remove!with ids[%v].\n", eventIDs)
 
+			removeedEventsMx.Lock()
 			for _, k := range eventIDs {
 				removeedEvents[k] = struct{}{}
 			}
@@ -369,15 +419,24 @@ func TestBrokenDBRemove(t *testing.T) {
 				assert.Equal(t, removeedEvents, eventsID)
 				defer wg.Done()
 			}
+			removeedEventsMx.Unlock()
 
 			return nil
 		})
 
 	repo.EXPECT().Remove(gomock.Any()).AnyTimes().After(removeCallsGood).After(removeCallsBad)
 
-	retranslator := NewRetranslator(cfg)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	clr := closer.NewCloser()
+	defer clr.RunAll()
+
+	clr.Add(func() {
+		cancel()
+	})
+
+	retranslator := NewRetranslator(ctx, clr, cfg)
 	retranslator.Start()
-	defer retranslator.Close()
 
 	wg.Wait()
 }

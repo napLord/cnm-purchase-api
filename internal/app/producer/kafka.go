@@ -1,7 +1,6 @@
 package producer
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -16,19 +15,17 @@ import (
 
 type Producer interface {
 	Start()
+	Close()
 }
 
 type producer struct {
-	ctx context.Context
-
 	n       uint64
 	timeout time.Duration
 
 	sender sender.EventSender
 	events <-chan model.PurchaseEvent
 
-	wg   *sync.WaitGroup
-	done chan bool
+	wg sync.WaitGroup
 
 	rq *remove_queue.RemoveQueue
 	uq *unlock_queue.UnlockQueue
@@ -36,23 +33,17 @@ type producer struct {
 
 // todo for students: add repo
 func NewKafkaProducer(
-	ctx context.Context,
 	n uint64,
 	sender sender.EventSender,
 	events <-chan model.PurchaseEvent,
 	rq *remove_queue.RemoveQueue,
 	uq *unlock_queue.UnlockQueue,
-	wg *sync.WaitGroup,
 ) Producer {
-	done := make(chan bool)
-
 	return &producer{
-		ctx:    ctx,
 		n:      n,
 		sender: sender,
 		events: events,
-		wg:     wg,
-		done:   done,
+		wg:     sync.WaitGroup{},
 		rq:     rq,
 		uq:     uq,
 	}
@@ -65,30 +56,23 @@ func (p *producer) Start() {
 			defer p.wg.Done()
 			for {
 				select {
-				case event := <-p.events:
+				case event, ok := <-p.events:
+					if !ok {
+						return
+					}
 					if err := p.sender.Send(&event); err != nil {
-						err := p.uq.Unlock(&event)
-						if err != nil {
-							fmt.Printf(
-								"producer can't unlock event[%v] why[%v]",
-								event.ID,
-								err,
-							)
-						}
+						p.uq.Unlock(&event)
 					} else {
 						p.rq.Remove(&event)
-						if err != nil {
-							fmt.Printf(
-								"producer can't remove event[%v] why[%v]",
-								event.ID,
-								err,
-							)
-						}
 					}
-				case <-p.ctx.Done():
-					return
 				}
 			}
 		}()
 	}
+}
+
+func (p *producer) Close() {
+	fmt.Printf("producer closing\n")
+	p.wg.Wait()
+	fmt.Printf("producer closed\n")
 }

@@ -2,14 +2,13 @@ package unlock_queue
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/gammazero/workerpool"
 	"github.com/napLord/cnm-purchase-api/internal/app/repo"
 	"github.com/napLord/cnm-purchase-api/internal/model"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -22,10 +21,8 @@ type UnlockQueue struct {
 
 	repo         repo.EventRepo
 	pool         *workerpool.WorkerPool
-	running      bool
+	running      *atomic.Bool
 	workersCount uint64
-
-	wg *sync.WaitGroup
 
 	retryEvents        chan *model.PurchaseEvent
 	retryEventsMaxSize uint64
@@ -39,19 +36,17 @@ func NewUnlockQueue(
 	repo repo.EventRepo,
 	parallelFactor uint64,
 	unlockTimeout time.Duration,
-	wg *sync.WaitGroup,
 ) *UnlockQueue {
 	ret := &UnlockQueue{
 		ctx:                ctx,
 		repo:               repo,
 		pool:               workerpool.New(int(parallelFactor)),
-		running:            false,
+		running:            atomic.NewBool(false),
 		workersCount:       parallelFactor,
 		retryEvents:        make(chan *model.PurchaseEvent, MaxParallelEvents),
 		retryEventsMaxSize: MaxParallelEvents,
 		backslash:          parallelFactor,
 		unlockTimeout:      unlockTimeout,
-		wg:                 wg,
 	}
 
 	ret.run()
@@ -59,89 +54,77 @@ func NewUnlockQueue(
 	return ret
 }
 
-var ErrQueueIsFull = errors.New("queue is full")
-
-func (q *UnlockQueue) Unlock(e *model.PurchaseEvent) error {
-	if !q.running {
+func (q *UnlockQueue) Unlock(e *model.PurchaseEvent) {
+	if !q.running.Load() {
 		panic("UnlockQueue not running but unlock tryed")
 	}
 
-	if uint64(len(q.retryEvents))+q.backslash >= q.retryEventsMaxSize {
-		return ErrQueueIsFull
+	q.retryEvents <- e
+}
+
+func (q *UnlockQueue) unlockEvents(e []*model.PurchaseEvent) {
+	if len(e) == 0 {
+		return
 	}
 
-	q.retryEvents <- e
+	for {
+		IDsToUnlock := make([]uint64, 0, len(e))
 
-	return nil
+		for i := 0; i < len(e); i++ {
+			IDsToUnlock = append(IDsToUnlock, e[i].ID)
+		}
+
+		err := q.repo.Unlock(IDsToUnlock)
+
+		if err != nil {
+			fmt.Printf("can't unlock events[%v] in repo. why[%v]. retry in  queue\n", IDsToUnlock, err)
+
+			time.Sleep(q.unlockTimeout)
+			continue
+		}
+
+		return
+	}
 }
 
 func (q *UnlockQueue) run() {
-	q.running = true
-
-	close := func() {
-		q.wg.Add(1)
-		defer q.wg.Done()
-
-		_ = <-q.ctx.Done()
-
-		q.running = false
-		close(q.retryEvents)
-		q.pool.StopWait()
-
-		fmt.Printf("unlock queue closed\n")
-	}
-	go close()
+	q.running.Store(true)
 
 	for i := 0; i < int(q.workersCount); i++ {
-		q.wg.Add(1)
-
 		q.pool.Submit(func() {
-			defer q.wg.Done()
-
 			eventsToUnlock := []*model.PurchaseEvent{}
-
-			unlockEvents := func() {
-				if len(eventsToUnlock) == 0 {
-					return
-				}
-
-				IDsToUnlock := make([]uint64, 0, len(eventsToUnlock))
-
-				for i := 0; i < len(eventsToUnlock); i++ {
-					IDsToUnlock = append(IDsToUnlock, eventsToUnlock[i].ID)
-				}
-
-				err := q.repo.Unlock(IDsToUnlock)
-
-				if err != nil {
-					fmt.Printf("can't unlock events[%v] in repo. why[%v]. retry in  queue\n", IDsToUnlock, err)
-
-					for i := 0; i < len(eventsToUnlock); i++ {
-						q.retryEvents <- eventsToUnlock[i]
-					}
-				}
-
-				eventsToUnlock = eventsToUnlock[:0]
-			}
 
 			ticker := time.NewTicker(q.unlockTimeout)
 
 			for {
-
 				select {
-				case event := <-q.retryEvents:
+				case event, ok := <-q.retryEvents:
+					if !ok {
+						q.unlockEvents(eventsToUnlock)
+
+						return
+					}
+
 					if event != nil {
 						eventsToUnlock = append(eventsToUnlock, event)
 					}
 
 				case <-ticker.C:
-					unlockEvents()
-
-				case _ = <-q.ctx.Done():
-					unlockEvents()
-					return
+					q.unlockEvents(eventsToUnlock)
+					eventsToUnlock = eventsToUnlock[:0]
 				}
 			}
 		})
 	}
+}
+
+func (q *UnlockQueue) Close() {
+	fmt.Printf("unlock_queue closing\n")
+
+	_ = <-q.ctx.Done()
+	q.running.Store(false)
+	close(q.retryEvents)
+	q.pool.StopWait()
+
+	fmt.Printf("unlock_queue closed\n")
 }

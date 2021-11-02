@@ -2,14 +2,13 @@ package remove_queue
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/gammazero/workerpool"
 	"github.com/napLord/cnm-purchase-api/internal/app/repo"
 	"github.com/napLord/cnm-purchase-api/internal/model"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -22,10 +21,8 @@ type RemoveQueue struct {
 
 	repo         repo.EventRepo
 	pool         *workerpool.WorkerPool
-	running      bool
+	running      *atomic.Bool
 	workersCount uint64
-
-	wg *sync.WaitGroup
 
 	retryEvents        chan *model.PurchaseEvent
 	retryEventsMaxSize uint64
@@ -39,19 +36,17 @@ func NewRemoveQueue(
 	repo repo.EventRepo,
 	parallelFactor uint64,
 	removeTimeout time.Duration,
-	wg *sync.WaitGroup,
 ) *RemoveQueue {
 	ret := &RemoveQueue{
 		ctx:                ctx,
 		repo:               repo,
 		pool:               workerpool.New(int(parallelFactor)),
-		running:            false,
+		running:            atomic.NewBool(false),
 		workersCount:       parallelFactor,
 		retryEvents:        make(chan *model.PurchaseEvent, MaxParallelEvents),
 		retryEventsMaxSize: MaxParallelEvents,
 		backslash:          parallelFactor,
 		removeTimeout:      removeTimeout,
-		wg:                 wg,
 	}
 
 	ret.run()
@@ -59,90 +54,77 @@ func NewRemoveQueue(
 	return ret
 }
 
-var ErrQueueIsFull = errors.New("queue is full")
-
-func (q *RemoveQueue) Remove(e *model.PurchaseEvent) error {
-	if !q.running {
+func (q *RemoveQueue) Remove(e *model.PurchaseEvent) {
+	if !q.running.Load() {
 		panic("RemoveQueue not running but remove tryed")
 	}
 
-	if uint64(len(q.retryEvents))+q.backslash >= q.retryEventsMaxSize {
-		return ErrQueueIsFull
+	q.retryEvents <- e
+}
+
+func (q *RemoveQueue) removeEvents(e []*model.PurchaseEvent) {
+	if len(e) == 0 {
+		return
 	}
 
-	q.retryEvents <- e
+	for {
+		IDsToRemove := make([]uint64, 0, len(e))
 
-	return nil
+		for i := 0; i < len(e); i++ {
+			IDsToRemove = append(IDsToRemove, e[i].ID)
+		}
+
+		err := q.repo.Remove(IDsToRemove)
+
+		if err != nil {
+			fmt.Printf("can't remove events[%v] in repo. why[%v]. retry in  queue\n", IDsToRemove, err)
+
+			time.Sleep(q.removeTimeout)
+			continue
+		}
+
+		return
+	}
 }
 
 func (q *RemoveQueue) run() {
-	q.running = true
-
-	close := func() {
-		q.wg.Add(1)
-		defer q.wg.Done()
-
-		_ = <-q.ctx.Done()
-
-		q.running = false
-		close(q.retryEvents)
-		q.pool.StopWait()
-
-		fmt.Printf("remove queue closed\n")
-	}
-	go close()
+	q.running.Store(true)
 
 	for i := 0; i < int(q.workersCount); i++ {
-		q.wg.Add(1)
-
 		q.pool.Submit(func() {
-			defer q.wg.Done()
-
 			eventsToRemove := []*model.PurchaseEvent{}
-
-			removeEvents := func() {
-				if len(eventsToRemove) == 0 {
-					return
-				}
-
-				IDsToRemove := make([]uint64, 0, len(eventsToRemove))
-
-				for i := 0; i < len(eventsToRemove); i++ {
-					IDsToRemove = append(IDsToRemove, eventsToRemove[i].ID)
-				}
-
-				err := q.repo.Remove(IDsToRemove)
-
-				if err != nil {
-					fmt.Printf("can't remove events[%v] in repo. why[%v]. retry in  queue\n", IDsToRemove, err)
-
-					for i := 0; i < len(eventsToRemove); i++ {
-						q.retryEvents <- eventsToRemove[i]
-					}
-				}
-
-				eventsToRemove = eventsToRemove[:0]
-			}
 
 			ticker := time.NewTicker(q.removeTimeout)
 
 			for {
-
 				select {
-				case event := <-q.retryEvents:
+				case event, ok := <-q.retryEvents:
+					if !ok {
+						q.removeEvents(eventsToRemove)
+
+						return
+					}
+
 					if event != nil {
 						eventsToRemove = append(eventsToRemove, event)
 					}
 
 				case <-ticker.C:
-					fmt.Printf("ticker triggered. remove()\n")
-					removeEvents()
-
-				case _ = <-q.ctx.Done():
-					removeEvents()
-					return
+					q.removeEvents(eventsToRemove)
+					eventsToRemove = eventsToRemove[:0]
 				}
 			}
 		})
 	}
+}
+
+func (q *RemoveQueue) Close() {
+	fmt.Printf("remove_queue closing\n")
+
+	_ = <-q.ctx.Done()
+	q.running.Store(false)
+	close(q.retryEvents)
+	q.pool.StopWait()
+
+	fmt.Printf("remove_queue closed\n")
 }

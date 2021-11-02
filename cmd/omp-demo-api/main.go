@@ -1,16 +1,18 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/napLord/cnm-purchase-api/internal/app/closer"
 	"github.com/napLord/cnm-purchase-api/internal/app/retranslator"
+	"golang.org/x/net/context"
 	//"github.com/ozonmp/omp-demo-api/internal/app/retranslator"
 )
 
 func main() {
-
 	sigs := make(chan os.Signal, 1)
 
 	cfg := retranslator.Config{
@@ -21,7 +23,16 @@ func main() {
 		WorkerCount:   2,
 	}
 
-	retranslator := retranslator.NewRetranslator(cfg)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	clr := closer.NewCloser()
+
+	clr.Add(func() {
+		cancel()
+	})
+	defer clr.RunAll()
+
+	retranslator := retranslator.NewRetranslator(ctx, clr, cfg)
 	retranslator.Start()
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
