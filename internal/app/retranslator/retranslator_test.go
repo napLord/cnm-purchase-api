@@ -32,13 +32,13 @@ func TestStart(t *testing.T) {
 		ChannelSize:    512,
 		ConsumerCount:  2,
 		ConsumeSize:    10,
-		ConsumeTimeout: 400 * time.Millisecond,
+		ConsumeTimeout: 1 * time.Millisecond,
 		ProducerCount:  2,
-		WorkerCount:    1,
+		WorkerCount:    2,
 		Repo:           repo,
 		Sender:         sender,
-		removeTimeout:  time.Second,
-		unlockTimeout:  time.Second,
+		removeTimeout:  4 * time.Millisecond,
+		unlockTimeout:  4 * time.Millisecond,
 	}
 	eventsCount := 16
 
@@ -66,14 +66,13 @@ func TestStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	clr := closer.NewCloser()
-
 	clr.Add(func() {
 		cancel()
 	})
 
+	lockmx := sync.Mutex{}
 	//expect behaviour
 
-	lockmx := sync.Mutex{}
 	//expects lock. returns eventsCount events
 	Locks := repo.EXPECT().
 		Lock(gomock.Any()).
@@ -133,12 +132,14 @@ func TestStart(t *testing.T) {
 	sender.EXPECT().Send(gomock.Any()).AnyTimes().After(sendBad)
 
 	//expects removes as we got good sends
+	removedEventsMx := sync.Mutex{}
 	removeCalls := repo.EXPECT().
 		Remove(gomock.Any()).
 		AnyTimes().
 		Do(func(eventIDs []uint64) error {
 			fmt.Printf("called Remove!with ids[%v]\n", eventIDs)
 
+			removedEventsMx.Lock()
 			for _, k := range eventIDs {
 				removedEvents[k] = struct{}{}
 			}
@@ -147,6 +148,7 @@ func TestStart(t *testing.T) {
 				assert.Equal(t, removedEvents, goodSendEvents)
 				defer wg.Done()
 			}
+			removedEventsMx.Unlock()
 
 			return nil
 		})
@@ -154,12 +156,14 @@ func TestStart(t *testing.T) {
 	repo.EXPECT().Remove(gomock.Any()).AnyTimes().After(removeCalls)
 
 	//expects  unlocks as we got bad sends
+	unlockedEventsMx := sync.Mutex{}
 	unlockCalls := repo.EXPECT().
 		Unlock(gomock.Any()).
 		AnyTimes().
 		Do(func(eventIDs []uint64) error {
 			fmt.Printf("called Unlock!with ids[%v]\n", eventIDs)
 
+			unlockedEventsMx.Lock()
 			for _, k := range eventIDs {
 				unlockedEvents[k] = struct{}{}
 			}
@@ -168,6 +172,7 @@ func TestStart(t *testing.T) {
 				assert.Equal(t, unlockedEvents, badSendEvents)
 				defer wg.Done()
 			}
+			unlockedEventsMx.Unlock()
 
 			return nil
 		})
@@ -192,13 +197,13 @@ func TestBrokenDBUnlock(t *testing.T) {
 		ChannelSize:    512,
 		ConsumerCount:  2,
 		ConsumeSize:    10,
-		ConsumeTimeout: 50 * time.Millisecond,
+		ConsumeTimeout: 1 * time.Millisecond,
 		ProducerCount:  2,
 		WorkerCount:    2,
 		Repo:           repo,
 		Sender:         sender,
-		removeTimeout:  200 * time.Millisecond,
-		unlockTimeout:  200 * time.Millisecond,
+		removeTimeout:  4 * time.Millisecond,
+		unlockTimeout:  4 * time.Millisecond,
 	}
 
 	purchase1 := model.Purchase{1, 1}
@@ -324,13 +329,13 @@ func TestBrokenDBRemove(t *testing.T) {
 		ChannelSize:    512,
 		ConsumerCount:  2,
 		ConsumeSize:    10,
-		ConsumeTimeout: 50 * time.Millisecond,
+		ConsumeTimeout: 1 * time.Millisecond,
 		ProducerCount:  2,
 		WorkerCount:    2,
 		Repo:           repo,
 		Sender:         sender,
-		removeTimeout:  200 * time.Millisecond,
-		unlockTimeout:  200 * time.Millisecond,
+		removeTimeout:  8 * time.Millisecond,
+		unlockTimeout:  8 * time.Millisecond,
 	}
 
 	purchase1 := model.Purchase{1, 1}
