@@ -77,7 +77,7 @@ func (q *UnlockQueue) unlockEvents(e []*model.PurchaseEvent) {
 		err := q.repo.Unlock(IDsToUnlock)
 
 		if err != nil {
-			fmt.Printf("can't unlock events[%v] in repo. why[%v]. retry in  queue\n", IDsToUnlock, err)
+			fmt.Printf("can't unlock events[%+v] in repo. why[%v]. retry in  queue\n", IDsToUnlock, err)
 
 			time.Sleep(q.unlockTimeout)
 			continue

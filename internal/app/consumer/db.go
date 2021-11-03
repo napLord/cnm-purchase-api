@@ -73,7 +73,7 @@ func (c *consumer) Start() {
 				case <-ticker.C:
 					events, err := c.repo.Lock(c.batchSize)
 					if err != nil {
-						fmt.Printf("can't Lock events. why[%v]", err)
+						fmt.Printf("can't Lock events. why[%+v]", err)
 						continue
 					}
 

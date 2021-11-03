@@ -119,12 +119,12 @@ func TestStart(t *testing.T) {
 		AnyTimes().
 		DoAndReturn(func(e *model.PurchaseEvent) error {
 			if _, ok := goodSendEvents[e.ID]; !ok {
-				fmt.Printf("called Send! with e[%v]. return err\n", e)
+				fmt.Printf("called Send! with e[%+v]. return err\n", e)
 
 				return errors.New("send failed. bad event")
 			}
 
-			fmt.Printf("called Send! with e[%v]. return good\n", e)
+			fmt.Printf("called Send! with e[%+v]. return good\n", e)
 
 			return nil
 		})
@@ -137,7 +137,7 @@ func TestStart(t *testing.T) {
 		Remove(gomock.Any()).
 		AnyTimes().
 		Do(func(eventIDs []uint64) error {
-			fmt.Printf("called Remove!with ids[%v]\n", eventIDs)
+			fmt.Printf("called Remove!with ids[%+v]\n", eventIDs)
 
 			removedEventsMx.Lock()
 			for _, k := range eventIDs {
@@ -161,7 +161,7 @@ func TestStart(t *testing.T) {
 		Unlock(gomock.Any()).
 		AnyTimes().
 		Do(func(eventIDs []uint64) error {
-			fmt.Printf("called Unlock!with ids[%v]\n", eventIDs)
+			fmt.Printf("called Unlock!with ids[%+v]\n", eventIDs)
 
 			unlockedEventsMx.Lock()
 			for _, k := range eventIDs {
@@ -256,7 +256,7 @@ func TestBrokenDBUnlock(t *testing.T) {
 		Send(gomock.Any()).
 		Times(eventsCount).
 		DoAndReturn(func(e *model.PurchaseEvent) error {
-			fmt.Printf("called Send! with e[%v]. responding with err\n", e)
+			fmt.Printf("called Send! with e[%+v]. responding with err\n", e)
 
 			return errors.New("send failed")
 		})
@@ -269,9 +269,9 @@ func TestBrokenDBUnlock(t *testing.T) {
 		Unlock(gomock.Any()).
 		Times(unlockFailedCount).
 		DoAndReturn(func(eventIDs []uint64) error {
-			fmt.Printf("called Unlock!with ids[%v]. responding with error\n", eventIDs)
+			fmt.Printf("called Unlock!with ids[%+v]. responding with error\n", eventIDs)
 
-			return errors.New(fmt.Sprintf("db can't remove events id[%v]\n", eventIDs))
+			return errors.New(fmt.Sprintf("db can't remove events id[%+v]\n", eventIDs))
 		})
 
 	//extepcts good eventsCount unlocks
@@ -280,14 +280,14 @@ func TestBrokenDBUnlock(t *testing.T) {
 		AnyTimes().
 		After(unlockCallsBad).
 		DoAndReturn(func(eventIDs []uint64) error {
-			fmt.Printf("called Unlock!with ids[%v].\n", eventIDs)
+			fmt.Printf("called Unlock!with ids[%+v].\n", eventIDs)
 
 			unlockedEventsMx.Lock()
 			for _, k := range eventIDs {
 				unlockedEvents[k] = struct{}{}
 			}
 
-			fmt.Printf("unlockedEvents[%v]\n", eventIDs)
+			fmt.Printf("unlockedEvents[%+v]\n", eventIDs)
 
 			if len(unlockedEvents) == len(eventsID) {
 				assert.Equal(t, unlockedEvents, eventsID)
@@ -387,7 +387,7 @@ func TestBrokenDBRemove(t *testing.T) {
 		Send(gomock.Any()).
 		Times(eventsCount).
 		DoAndReturn(func(e *model.PurchaseEvent) error {
-			fmt.Printf("called Send! with e[%v]. responding good\n", e)
+			fmt.Printf("called Send! with e[%+v]. responding good\n", e)
 
 			return nil
 		})
@@ -400,9 +400,9 @@ func TestBrokenDBRemove(t *testing.T) {
 		Remove(gomock.Any()).
 		Times(removeFailedCount).
 		DoAndReturn(func(eventIDs []uint64) error {
-			fmt.Printf("called Remove!with ids[%v]. responding with error\n", eventIDs)
+			fmt.Printf("called Remove!with ids[%+v]. responding with error\n", eventIDs)
 
-			return errors.New(fmt.Sprintf("db can't remove events id[%v]\n", eventIDs))
+			return errors.New(fmt.Sprintf("db can't remove events id[%+v]\n", eventIDs))
 		})
 
 	//extepcts good eventsCount removes
@@ -411,14 +411,14 @@ func TestBrokenDBRemove(t *testing.T) {
 		AnyTimes().
 		After(removeCallsBad).
 		DoAndReturn(func(eventIDs []uint64) error {
-			fmt.Printf("called Remove!with ids[%v].\n", eventIDs)
+			fmt.Printf("called Remove!with ids[%+v].\n", eventIDs)
 
 			removeedEventsMx.Lock()
 			for _, k := range eventIDs {
 				removeedEvents[k] = struct{}{}
 			}
 
-			fmt.Printf("removeedEvents[%v]\n", eventIDs)
+			fmt.Printf("removeedEvents[%+v]\n", eventIDs)
 
 			if len(removeedEvents) == len(eventsID) {
 				assert.Equal(t, removeedEvents, eventsID)

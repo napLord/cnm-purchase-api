@@ -77,7 +77,7 @@ func (q *RemoveQueue) removeEvents(e []*model.PurchaseEvent) {
 		err := q.repo.Remove(IDsToRemove)
 
 		if err != nil {
-			fmt.Printf("can't remove events[%v] in repo. why[%v]. retry in  queue\n", IDsToRemove, err)
+			fmt.Printf("can't remove events[%+v] in repo. why[%v]. retry in  queue\n", IDsToRemove, err)
 
 			time.Sleep(q.removeTimeout)
 			continue
