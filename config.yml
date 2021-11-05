@@ -1,5 +1,5 @@
 project:
-  name: Ozon Code Platform Template API
+  name: Ozon Code Platform Purchase API
   debug: true
   environment: development
 
@@ -20,7 +20,7 @@ metrics:
   path: /metrics
 
 jaeger:
-  service: "omp-template-api"
+  service: "cnm-purchase-api"
   host: "jaeger"
   port: ":6831"
 
@@ -36,15 +36,15 @@ database:
   port: 5432
   user: docker
   password: docker
-  name: omp_template_api
+  name: cnm_purchase_api
   sslmode: disable
   migrations: migrations
   driver: pgx
 
 kafka:
   capacity: 512
-  topic: "omp-template-events"
-  groupId: "omp-template-api"
+  topic: "cnm-purchase-events"
+  groupId: "cnm-purchase-api"
   brokers:
     - "kafka:9092"
     - "localhost:9094"

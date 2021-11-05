@@ -5,8 +5,8 @@ endif
 
 export GO111MODULE=on
 
-SERVICE_NAME=omp-template-api
-SERVICE_PATH=ozonmp/omp-template-api
+SERVICE_NAME=cnm-purchase-api
+SERVICE_PATH=ozonmp/cnm-purchase-api
 
 PGV_VERSION:="v0.6.1"
 BUF_VERSION:="v0.56.0"
@@ -37,8 +37,9 @@ test:
 
 # ----------------------------------------------------------------
 
+#remove @#$! python generates that i don't really need
 .PHONY: generate
-generate: .generate-install-buf .generate-go .generate-python .generate-finalize-go .generate-finalize-python
+generate: .generate-install-buf .generate-go .generate-finalize-go
 
 .PHONY: generate
 generate-go: .generate-install-buf .generate-go .generate-finalize-go
@@ -52,7 +53,7 @@ generate-go: .generate-install-buf .generate-go .generate-finalize-go
 	$(BUF_EXE) generate
 
 .generate-python:
-	$(BUF_EXE) generate --template buf.gen.python.yaml
+	$(BUF_EXE) generate --purchase buf.gen.python.yaml
 
 .generate-finalize-go:
 	mv pkg/$(SERVICE_NAME)/github.com/$(SERVICE_PATH)/pkg/$(SERVICE_NAME)/* pkg/$(SERVICE_NAME)
@@ -60,7 +61,7 @@ generate-go: .generate-install-buf .generate-go .generate-finalize-go
 	cd pkg/$(SERVICE_NAME) && ls go.mod || (go mod init github.com/$(SERVICE_PATH)/pkg/$(SERVICE_NAME) && go mod tidy)
 
 .generate-finalize-python:
-	find pypkg/omp-template-api -type d -exec touch {}/__init__.py \;
+	find pypkg/cnm-purchase-api -type d -exec touch {}/__init__.py \;
 
 # ----------------------------------------------------------------
 

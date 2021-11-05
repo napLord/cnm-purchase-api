@@ -124,7 +124,7 @@ lint:
   # allow_comment_ignores allows comment-driven ignores.
   #
   # If this option is set, leading comments can be added within Protobuf files
-  # to ignore lint errors for certain components. If any line in a leading
+  # to ignore lint errors for certain ccnmonents. If any line in a leading
   # comment starts with "buf:lint:ignore ID", then Buf will ignore lint errors
   # for this id. For example:
   #
@@ -198,7 +198,7 @@ breaking:
   #  WIRE_JSON:
   #    - foo
 
-  # ignore_unstable_packages results in ignoring packages with a last component
+  # ignore_unstable_packages results in ignoring packages with a last ccnmonent
   # that is one of the unstable forms recognized by the "PACKAGE_VERSION_SUFFIX"
   # lint rule. The following forms will be ignored:
   #

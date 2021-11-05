@@ -10,59 +10,59 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/ozonmp/omp-template-api/internal/repo"
+	"github.com/ozonmp/cnm-purchase-api/internal/repo"
 
-	pb "github.com/ozonmp/omp-template-api/pkg/omp-template-api"
+	pb "github.com/ozonmp/cnm-purchase-api/pkg/cnm-purchase-api"
 )
 
 var (
-	totalTemplateNotFound = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "omp_template_api_template_not_found_total",
-		Help: "Total number of templates that were not found",
+	totalPurchaseNotFound = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "cnm_purchase_api_purchase_not_found_total",
+		Help: "Total number of purchases that were not found",
 	})
 )
 
-type templateAPI struct {
-	pb.UnimplementedOmpTemplateApiServiceServer
+type purchaseAPI struct {
+	pb.UnimplementedCnmPurchaseApiServiceServer
 	repo repo.Repo
 }
 
-// NewTemplateAPI returns api of omp-template-api service
-func NewTemplateAPI(r repo.Repo) pb.OmpTemplateApiServiceServer {
-	return &templateAPI{repo: r}
+// NewPurchaseAPI returns api of cnm-purchase-api service
+func NewPurchaseAPI(r repo.Repo) pb.CnmPurchaseApiServiceServer {
+	return &purchaseAPI{repo: r}
 }
 
-func (o *templateAPI) DescribeTemplateV1(
+func (o *purchaseAPI) DescribePurchaseV1(
 	ctx context.Context,
-	req *pb.DescribeTemplateV1Request,
-) (*pb.DescribeTemplateV1Response, error) {
+	req *pb.DescribePurchaseV1Request,
+) (*pb.DescribePurchaseV1Response, error) {
 
 	if err := req.Validate(); err != nil {
-		log.Error().Err(err).Msg("DescribeTemplateV1 - invalid argument")
+		log.Error().Err(err).Msg("DescribePurchaseV1 - invalid argument")
 
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	template, err := o.repo.DescribeTemplate(ctx, req.TemplateId)
+	purchase, err := o.repo.DescribePurchase(ctx, req.PurchaseId)
 	if err != nil {
-		log.Error().Err(err).Msg("DescribeTemplateV1 -- failed")
+		log.Error().Err(err).Msg("DescribePurchaseV1 -- failed")
 
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	if template == nil {
-		log.Debug().Uint64("templateId", req.TemplateId).Msg("template not found")
-		totalTemplateNotFound.Inc()
+	if purchase == nil {
+		log.Debug().Uint64("purchaseId", req.PurchaseId).Msg("purchase not found")
+		totalPurchaseNotFound.Inc()
 
-		return nil, status.Error(codes.NotFound, "template not found")
+		return nil, status.Error(codes.NotFound, "purchase not found")
 	}
 
-	log.Debug().Msg("DescribeTemplateV1 - success")
+	log.Debug().Msg("DescribePurchaseV1 - success")
 
-	return &pb.DescribeTemplateV1Response{
-		Value: &pb.Template{
-			Id:  template.ID,
-			Foo: template.Foo,
+	return &pb.DescribePurchaseV1Response{
+		Value: &pb.Purchase{
+			Id:  purchase.ID,
+			Foo: purchase.Foo,
 		},
 	}, nil
 }

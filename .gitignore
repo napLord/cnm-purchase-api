@@ -5,3 +5,7 @@ swagger/
 bin/
 data/
 main
+.*swp
+*.swp
+*~
+.*~

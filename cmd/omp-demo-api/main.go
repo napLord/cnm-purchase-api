@@ -9,7 +9,7 @@ import (
 	"github.com/napLord/cnm-purchase-api/internal/app/closer"
 	"github.com/napLord/cnm-purchase-api/internal/app/retranslator"
 	"golang.org/x/net/context"
-	//"github.com/ozonmp/omp-demo-api/internal/app/retranslator"
+	//"github.com/ozonmp/cnm-demo-api/internal/app/retranslator"
 )
 
 func main() {
