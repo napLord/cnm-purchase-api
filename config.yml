@@ -5,28 +5,30 @@ project:
 
 grpc:
   host: 0.0.0.0
-  port: 8082
+  port: 28082
   maxConnectionIdle: 5 # Minutes
   timeout: 15 # Seconds
   maxConnectionAge: 5 # Minutes
 
 rest:
   host: 0.0.0.0
-  port: 8080
+  port: 28080
 
 metrics:
   host: 0.0.0.0
-  port: 9100
+  port: 29100
   path: /metrics
 
 jaeger:
   service: "cnm-purchase-api"
   host: "jaeger"
   port: ":6831"
+  #host: "0.0.0.0"
+  #port: ":6831"
 
 status:
   host: 0.0.0.0
-  port: 8000
+  port: 28000
   livenessPath: /live
   readinessPath: /ready
   versionPath: /version

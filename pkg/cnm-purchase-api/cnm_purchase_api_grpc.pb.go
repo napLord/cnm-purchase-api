@@ -18,8 +18,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CnmPurchaseApiServiceClient interface {
-	// DescribePurchaseV1 - Describe a purchase
 	DescribePurchaseV1(ctx context.Context, in *DescribePurchaseV1Request, opts ...grpc.CallOption) (*DescribePurchaseV1Response, error)
+	CreatePurchaseV1(ctx context.Context, in *CreatePurchaseV1Request, opts ...grpc.CallOption) (*CreatePurchaseV1Response, error)
+	ListPurchasesV1(ctx context.Context, in *ListPurchasesV1Request, opts ...grpc.CallOption) (*ListPurchasesV1Response, error)
+	RemovePurchaseV1(ctx context.Context, in *RemovePurchaseV1Request, opts ...grpc.CallOption) (*RemovePurchaseV1Response, error)
 }
 
 type cnmPurchaseApiServiceClient struct {
@@ -39,12 +41,41 @@ func (c *cnmPurchaseApiServiceClient) DescribePurchaseV1(ctx context.Context, in
 	return out, nil
 }
 
+func (c *cnmPurchaseApiServiceClient) CreatePurchaseV1(ctx context.Context, in *CreatePurchaseV1Request, opts ...grpc.CallOption) (*CreatePurchaseV1Response, error) {
+	out := new(CreatePurchaseV1Response)
+	err := c.cc.Invoke(ctx, "/ozonmp.cnm_purchase_api.v1.CnmPurchaseApiService/CreatePurchaseV1", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cnmPurchaseApiServiceClient) ListPurchasesV1(ctx context.Context, in *ListPurchasesV1Request, opts ...grpc.CallOption) (*ListPurchasesV1Response, error) {
+	out := new(ListPurchasesV1Response)
+	err := c.cc.Invoke(ctx, "/ozonmp.cnm_purchase_api.v1.CnmPurchaseApiService/ListPurchasesV1", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cnmPurchaseApiServiceClient) RemovePurchaseV1(ctx context.Context, in *RemovePurchaseV1Request, opts ...grpc.CallOption) (*RemovePurchaseV1Response, error) {
+	out := new(RemovePurchaseV1Response)
+	err := c.cc.Invoke(ctx, "/ozonmp.cnm_purchase_api.v1.CnmPurchaseApiService/RemovePurchaseV1", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CnmPurchaseApiServiceServer is the server API for CnmPurchaseApiService service.
 // All implementations must embed UnimplementedCnmPurchaseApiServiceServer
 // for forward compatibility
 type CnmPurchaseApiServiceServer interface {
-	// DescribePurchaseV1 - Describe a purchase
 	DescribePurchaseV1(context.Context, *DescribePurchaseV1Request) (*DescribePurchaseV1Response, error)
+	CreatePurchaseV1(context.Context, *CreatePurchaseV1Request) (*CreatePurchaseV1Response, error)
+	ListPurchasesV1(context.Context, *ListPurchasesV1Request) (*ListPurchasesV1Response, error)
+	RemovePurchaseV1(context.Context, *RemovePurchaseV1Request) (*RemovePurchaseV1Response, error)
 	mustEmbedUnimplementedCnmPurchaseApiServiceServer()
 }
 
@@ -54,6 +85,15 @@ type UnimplementedCnmPurchaseApiServiceServer struct {
 
 func (UnimplementedCnmPurchaseApiServiceServer) DescribePurchaseV1(context.Context, *DescribePurchaseV1Request) (*DescribePurchaseV1Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DescribePurchaseV1 not implemented")
+}
+func (UnimplementedCnmPurchaseApiServiceServer) CreatePurchaseV1(context.Context, *CreatePurchaseV1Request) (*CreatePurchaseV1Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreatePurchaseV1 not implemented")
+}
+func (UnimplementedCnmPurchaseApiServiceServer) ListPurchasesV1(context.Context, *ListPurchasesV1Request) (*ListPurchasesV1Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListPurchasesV1 not implemented")
+}
+func (UnimplementedCnmPurchaseApiServiceServer) RemovePurchaseV1(context.Context, *RemovePurchaseV1Request) (*RemovePurchaseV1Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemovePurchaseV1 not implemented")
 }
 func (UnimplementedCnmPurchaseApiServiceServer) mustEmbedUnimplementedCnmPurchaseApiServiceServer() {}
 
@@ -86,6 +126,60 @@ func _CnmPurchaseApiService_DescribePurchaseV1_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CnmPurchaseApiService_CreatePurchaseV1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePurchaseV1Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CnmPurchaseApiServiceServer).CreatePurchaseV1(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ozonmp.cnm_purchase_api.v1.CnmPurchaseApiService/CreatePurchaseV1",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CnmPurchaseApiServiceServer).CreatePurchaseV1(ctx, req.(*CreatePurchaseV1Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CnmPurchaseApiService_ListPurchasesV1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPurchasesV1Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CnmPurchaseApiServiceServer).ListPurchasesV1(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ozonmp.cnm_purchase_api.v1.CnmPurchaseApiService/ListPurchasesV1",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CnmPurchaseApiServiceServer).ListPurchasesV1(ctx, req.(*ListPurchasesV1Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CnmPurchaseApiService_RemovePurchaseV1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemovePurchaseV1Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CnmPurchaseApiServiceServer).RemovePurchaseV1(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ozonmp.cnm_purchase_api.v1.CnmPurchaseApiService/RemovePurchaseV1",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CnmPurchaseApiServiceServer).RemovePurchaseV1(ctx, req.(*RemovePurchaseV1Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CnmPurchaseApiService_ServiceDesc is the grpc.ServiceDesc for CnmPurchaseApiService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -96,6 +190,18 @@ var CnmPurchaseApiService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DescribePurchaseV1",
 			Handler:    _CnmPurchaseApiService_DescribePurchaseV1_Handler,
+		},
+		{
+			MethodName: "CreatePurchaseV1",
+			Handler:    _CnmPurchaseApiService_CreatePurchaseV1_Handler,
+		},
+		{
+			MethodName: "ListPurchasesV1",
+			Handler:    _CnmPurchaseApiService_ListPurchasesV1_Handler,
+		},
+		{
+			MethodName: "RemovePurchaseV1",
+			Handler:    _CnmPurchaseApiService_RemovePurchaseV1_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
