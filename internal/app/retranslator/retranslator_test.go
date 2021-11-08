@@ -13,7 +13,7 @@ import (
 	"github.com/napLord/cnm-purchase-api/internal/app/closer"
 	"github.com/napLord/cnm-purchase-api/internal/app/remove_queue"
 	"github.com/napLord/cnm-purchase-api/internal/app/unlock_queue"
-	"github.com/napLord/cnm-purchase-api/internal/mocks"
+	"github.com/napLord/cnm-purchase-api/internal/mocks" //nolint
 	"github.com/napLord/cnm-purchase-api/internal/model"
 	"github.com/stretchr/testify/assert"
 )

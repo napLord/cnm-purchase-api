@@ -6,10 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/napLord/cnm-purchase-api/internal/app/closer"
-	"github.com/napLord/cnm-purchase-api/internal/app/retranslator"
-	"golang.org/x/net/context"
-	//"github.com/ozonmp/cnm-demo-api/internal/app/retranslator"
+	"github.com/napLord/cnm-purchase-api/internal/app/closer"       //nolint
+	"github.com/napLord/cnm-purchase-api/internal/app/retranslator" //nolint
 )
 
 func main() {

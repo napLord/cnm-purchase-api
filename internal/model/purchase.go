@@ -7,10 +7,13 @@ type Purchase struct {
 	TotalSum uint64 `db:"total_sum"`
 }
 
+//EventType is type of Event
 type EventType uint8
 
+//EventStatus is status of event
 type EventStatus uint8
 
+//EventTypes
 const (
 	Created EventType = iota
 	Updated
@@ -20,6 +23,7 @@ const (
 	Processed
 )
 
+//PurchaseEvent is an event of purchasing something
 type PurchaseEvent struct {
 	ID     uint64
 	Type   EventType
@@ -27,6 +31,7 @@ type PurchaseEvent struct {
 	Entity *Purchase
 }
 
+//NewPurchaseEvent creates new PurchaseEvent
 func NewPurchaseEvent(
 	ID uint64,
 	Entity *Purchase,

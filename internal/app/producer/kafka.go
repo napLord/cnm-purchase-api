@@ -3,24 +3,22 @@ package producer
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/napLord/cnm-purchase-api/internal/app/remove_queue"
-	_ "github.com/napLord/cnm-purchase-api/internal/app/remove_queue"
 	"github.com/napLord/cnm-purchase-api/internal/app/sender"
 	"github.com/napLord/cnm-purchase-api/internal/model"
 
 	"github.com/napLord/cnm-purchase-api/internal/app/unlock_queue"
 )
 
+//Producer sends event to kafka. unlock events on send error or remove them otherwise
 type Producer interface {
 	Start()
 	Close()
 }
 
 type producer struct {
-	n       uint64
-	timeout time.Duration
+	n uint64
 
 	sender sender.EventSender
 	events <-chan model.PurchaseEvent
@@ -31,7 +29,7 @@ type producer struct {
 	uq *unlock_queue.UnlockQueue
 }
 
-// todo for students: add repo
+//NewKafkaProducer creates new  KafkaProducer
 func NewKafkaProducer(
 	n uint64,
 	sender sender.EventSender,
