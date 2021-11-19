@@ -3,12 +3,14 @@
 ARG GITHUB_PATH=github.com/ozonmp/cnm-purchase-api
 
 FROM golang:1.16-alpine AS builder
-RUN apk add --update make git protoc protobuf protobuf-dev curl
-COPY . /home/${GITHUB_PATH}
-WORKDIR /home/${GITHUB_PATH}
-RUN make deps-go && make build-go
 
-RUN go get github.com/go-delve/delve/cmd/dlv
+WORKDIR /home/${GITHUB_PATH}
+
+RUN apk add --update make git protoc protobuf protobuf-dev curl
+COPY Makefile Makefile
+RUN make deps-go
+COPY . .
+RUN make build-go
 
 # gRPC Server
 
@@ -27,6 +29,6 @@ RUN chown root:root grpc-server
 EXPOSE 50051
 EXPOSE 40000
 EXPOSE 8080
-EXPOSE 9100
+EXPOSE 9101
 
 CMD ["./dlv", "--listen=:40000", "--headless=true", "--api-version=2", "--accept-multiclient", "exec", "./grpc-server"]

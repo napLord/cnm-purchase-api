@@ -16,17 +16,30 @@ service CnmPurchaseApiService {
     };
   }
 
-  rpc CreatePurchaseV1(CreatePurchaseV1Request) returns (CreatePurchaseV1Response) {}
+  rpc CreatePurchaseV1(CreatePurchaseV1Request) returns (CreatePurchaseV1Response) {
+        option (google.api.http) = {
+          get: "/v1/purchases/create/{total_sum}"
+        };
+   }
 
-  rpc ListPurchasesV1(ListPurchasesV1Request) returns (ListPurchasesV1Response) {}
+  rpc ListPurchasesV1(ListPurchasesV1Request) returns (ListPurchasesV1Response) {
+        option (google.api.http) = {
+          get: "/v1/purchases/list/{limit}/{cursor}"
+        };
+    }
 
-  rpc RemovePurchaseV1(RemovePurchaseV1Request) returns (RemovePurchaseV1Response) {}
+
+  rpc RemovePurchaseV1(RemovePurchaseV1Request) returns (RemovePurchaseV1Response) {
+        option (google.api.http) = {
+          get: "/v1/purchases/remove/{purchase_id}"
+        };
+   }
 }
 
 message Purchase {
     uint64 id  = 1;
     uint64 total_sum = 2;
-    google.protobuf.Timestamp created = 3;
+    //google.protobuf.Timestamp created = 3;
 }
 
 message DescribePurchaseV1Request {
@@ -46,10 +59,13 @@ message CreatePurchaseV1Response {
 }
 
 message ListPurchasesV1Request {
+    uint64 limit = 1 [(validate.rules).uint64.gt = 0];
+    uint64 cursor  = 2 [(validate.rules).uint64.gte = 0];;
 }
 
 message ListPurchasesV1Response {
     repeated Purchase items = 1;
+    uint64 cursor = 2;
 }
 
 message RemovePurchaseV1Request {

@@ -66,7 +66,7 @@ generate-go: .generate-install-buf .generate-go .generate-finalize-go
 # ----------------------------------------------------------------
 
 .PHONY: deps
-deps: deps-go .deps-python
+deps: deps-go #.deps-python
 
 .PHONY: deps-go
 deps-go:

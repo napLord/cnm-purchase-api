@@ -71,7 +71,7 @@ It reads protobuf service definitions and generates a reverse-proxy server which
 
 Metrics GRPC Server
 
-- http://localhost:9100/metrics
+- http://localhost:9101/metrics
 
 ### Status:
 

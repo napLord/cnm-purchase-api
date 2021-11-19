@@ -5,18 +5,18 @@ project:
 
 grpc:
   host: 0.0.0.0
-  port: 28082
+  port: 8082
   maxConnectionIdle: 5 # Minutes
   timeout: 15 # Seconds
   maxConnectionAge: 5 # Minutes
 
 rest:
   host: 0.0.0.0
-  port: 28080
+  port: 8080
 
 metrics:
   host: 0.0.0.0
-  port: 29100
+  port: 9101
   path: /metrics
 
 jaeger:
@@ -28,12 +28,13 @@ jaeger:
 
 status:
   host: 0.0.0.0
-  port: 28000
+  port: 8000
   livenessPath: /live
   readinessPath: /ready
   versionPath: /version
 
 database:
+  #host: postgres
   host: postgres
   port: 5432
   user: docker

@@ -28,7 +28,7 @@ func main() {
 	}
 	cfg := config.GetConfigInstance()
 
-	migration := flag.Bool("migration", true, "Defines the migration start option")
+	//migration := flag.Bool("migration", true, "Defines the migration start option")
 	flag.Parse()
 
 	log.Info().
@@ -57,14 +57,11 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed init postgres")
 	}
 	defer db.Close()
+	log.Info().Msg("migrations started")
+	if err = goose.Up(db.DB, cfg.Database.Migrations); err != nil {
+		log.Error().Err(err).Msg("Migration failed")
 
-	*migration = false // todo: need to delete this line for homework-4
-	if *migration {
-		if err = goose.Up(db.DB, cfg.Database.Migrations); err != nil {
-			log.Error().Err(err).Msg("Migration failed")
-
-			return
-		}
+		return
 	}
 
 	tracing, err := tracer.NewTracer(&cfg)
