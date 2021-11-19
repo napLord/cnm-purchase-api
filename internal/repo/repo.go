@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/ozonmp/cnm-purchase-api/internal/model"
+	"github.com/ozonmp/cnm-purchase-api/pkg/dbwrapper"
 )
 
 // Repo is DAO for Purchase
@@ -61,30 +62,40 @@ func (r *repo) DescribePurchase(ctx context.Context, purchaseID uint64) (*model.
 }
 
 func (r *repo) CreatePurchase(ctx context.Context, totalSum uint64) (purchaseID uint64, err error) {
-	//transaction?
-	req := sq.
-		Insert("purchases").
-		PlaceholderFormat(sq.Dollar).
-		Columns("total_sum", "removed", "created").
-		Suffix("RETURNING id").
-		Values(totalSum, false, time.Now()).RunWith(r.db)
+	dbwErr := dbwrapper.WithTx(ctx, r.db, func(ctx context.Context, tx *sqlx.Tx) error {
+		req := sq.
+			Insert("purchases").
+			PlaceholderFormat(sq.Dollar).
+			Columns("total_sum", "removed", "created").
+			Suffix("RETURNING id").
+			Values(totalSum, false, time.Now()).
+			RunWith(tx)
 
-	rows, err := req.QueryContext(ctx)
-	if err != nil {
-		return 0, errors.Wrap(err, "can't create purchase in db")
-	}
-
-	if rows.Next() {
-		var lastInsertedID uint64
-		err = rows.Scan(&lastInsertedID)
+		rows, err := req.QueryContext(ctx)
 		if err != nil {
-			return 0, errors.Wrap(err, "error during parsing row")
+			return errors.Wrap(err, "can't create purchase in db")
 		}
 
-		return uint64(lastInsertedID), nil
+		if rows.Next() {
+			var lastInsertedID uint64
+			err = rows.Scan(&lastInsertedID)
+			if err != nil {
+				return errors.Wrap(err, "error during parsing row")
+			}
+
+			purchaseID = uint64(lastInsertedID)
+
+			return nil
+		}
+
+		return errors.New("query returned no rows")
+	})
+
+	if dbwErr != nil {
+		return 0, dbwErr
 	}
 
-	return 0, errors.New("qurety returned no rows")
+	return purchaseID, nil
 }
 
 func (r *repo) RemovePurchase(ctx context.Context, purchaseID uint64) (found bool, err error) {
