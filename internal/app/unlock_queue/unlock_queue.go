@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gammazero/workerpool"
-	"github.com/napLord/cnm-purchase-api/internal/app/repo"
-	"github.com/napLord/cnm-purchase-api/internal/model"
+	"github.com/ozonmp/cnm-purchase-api/internal/app/repo"
+	"github.com/ozonmp/cnm-purchase-api/internal/model"
 	"go.uber.org/atomic"
 )
 
