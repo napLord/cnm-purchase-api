@@ -1,3 +1,4 @@
+//nolint:dupl, revive
 package api
 
 import (

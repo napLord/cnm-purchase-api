@@ -77,7 +77,7 @@ func (q *UnlockQueue) unlockEvents(e []*model.PurchaseEvent) {
 			IDsToUnlock = append(IDsToUnlock, e[i].ID)
 		}
 
-		err := q.repo.Unlock(IDsToUnlock)
+		err := q.repo.Unlock(context.Background(), IDsToUnlock)
 
 		if err != nil {
 			fmt.Printf("can't unlock events[%+v] in repo. why[%v]. retry in  queue\n", IDsToUnlock, err)

@@ -20,11 +20,13 @@ type Repo interface {
 	ListPurchases(ctx context.Context, limit uint64, cursor uint64) (purchases []model.Purchase, nextCursor uint64, err error)
 }
 
+//repo is an implementation of Repo interface
 type repo struct {
 	db        *sqlx.DB
 	batchSize uint
 }
 
+//ErrNoPurchases is error which tells no purchases found
 var ErrNoPurchases = errors.New("got 0 purchases from db")
 
 // NewRepo returns Repo interface
@@ -32,6 +34,7 @@ func NewRepo(db *sqlx.DB, batchSize uint) Repo {
 	return &repo{db: db, batchSize: batchSize}
 }
 
+//DescribePurchase select purchase from db
 func (r *repo) DescribePurchase(ctx context.Context, purchaseID uint64) (*model.Purchase, error) {
 	req := sq.
 		Select("id", "total_sum").
@@ -61,6 +64,7 @@ func (r *repo) DescribePurchase(ctx context.Context, purchaseID uint64) (*model.
 	return &res[0], nil
 }
 
+//CreatePurchase creating purchase in db
 func (r *repo) CreatePurchase(ctx context.Context, totalSum uint64) (purchaseID uint64, err error) {
 	dbwErr := dbwrapper.WithTx(ctx, r.db, func(ctx context.Context, tx *sqlx.Tx) error {
 		req := sq.
@@ -98,6 +102,7 @@ func (r *repo) CreatePurchase(ctx context.Context, totalSum uint64) (purchaseID 
 	return purchaseID, nil
 }
 
+//RemovePurchase set purchase as removed in db
 func (r *repo) RemovePurchase(ctx context.Context, purchaseID uint64) (found bool, err error) {
 	req := sq.
 		Update("purchases").
@@ -124,6 +129,7 @@ func (r *repo) RemovePurchase(ctx context.Context, purchaseID uint64) (found boo
 	return true, nil
 }
 
+//ListPurchases get <= limit purchases from by cursor and returns newCursor that should be used to continue paginated listing
 func (r *repo) ListPurchases(ctx context.Context, limit uint64, cursor uint64) (purchases []model.Purchase, nextCursor uint64, err error) {
 	req := sq.
 		Select("id", "total_sum").

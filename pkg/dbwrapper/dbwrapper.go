@@ -7,8 +7,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+//WithTxFunc is a function which wrap a transaction actions
 type WithTxFunc func(ctx context.Context, tx *sqlx.Tx) error
 
+//WithTx wrapiing a transaction actions and rollback them if error occured or commit them otherwise
 func WithTx(ctx context.Context, db *sqlx.DB, fn WithTxFunc) error {
 	t, err := db.BeginTxx(ctx, nil)
 	if err != nil {

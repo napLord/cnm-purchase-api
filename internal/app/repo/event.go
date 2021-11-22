@@ -20,14 +20,17 @@ type EventRepo interface {
 	Remove(ctx context.Context, eventIDs []uint64) error
 }
 
+//EventRepoImpl is an EventRepo implementation
 type EventRepoImpl struct {
 	db *sqlx.DB
 }
 
+//NewEventRepo - creating new EventRepoImpl
 func NewEventRepo(db *sqlx.DB) EventRepo {
 	return &EventRepoImpl{db: db}
 }
 
+//Lock set <=n events in db as locked
 func (r *EventRepoImpl) Lock(ctx context.Context, n uint64) ([]model.PurchaseEvent, error) {
 	selectVacantReq := sq.
 		Select("id").
@@ -55,6 +58,7 @@ func (r *EventRepoImpl) Lock(ctx context.Context, n uint64) ([]model.PurchaseEve
 	return result, err
 }
 
+//Unlock sets events in db unlocked
 func (r *EventRepoImpl) Unlock(ctx context.Context, eventIDs []uint64) error {
 	req := sq.
 		Update("purchases_events").
@@ -71,8 +75,9 @@ func (r *EventRepoImpl) Unlock(ctx context.Context, eventIDs []uint64) error {
 	return nil
 }
 
+//Add adding event in db
 func (r *EventRepoImpl) Add(ctx context.Context, event *model.PurchaseEvent) error {
-	innerPurchasePB := model.PurchaseToPB(event.Entity)
+	innerPurchasePB := model.PurchaseToPB(event.Purchase.Value)
 
 	srlzdPurchase, err := protojson.Marshal(&innerPurchasePB)
 	if err != nil {
@@ -83,7 +88,7 @@ func (r *EventRepoImpl) Add(ctx context.Context, event *model.PurchaseEvent) err
 		Insert("purchases_events").
 		PlaceholderFormat(sq.Dollar).
 		Columns("purchase_id", "type", "status", "payload", "updated").
-		Values(event.Entity.ID, event.Type.String(), model.Unlocked.String(), srlzdPurchase, time.Now()).
+		Values(event.Purchase.Value.ID, event.Type.String(), model.Unlocked.String(), srlzdPurchase, time.Now()).
 		RunWith(r.db)
 
 	_, err = query.ExecContext(ctx)
@@ -94,6 +99,7 @@ func (r *EventRepoImpl) Add(ctx context.Context, event *model.PurchaseEvent) err
 	return nil
 }
 
+//Remove removing event from db
 func (r *EventRepoImpl) Remove(ctx context.Context, eventIDs []uint64) error {
 	query := sq.
 		Delete("purchases_events").

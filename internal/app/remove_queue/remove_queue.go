@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gammazero/workerpool"
-	"github.com/napLord/cnm-purchase-api/internal/app/repo"
-	"github.com/napLord/cnm-purchase-api/internal/model"
+	"github.com/ozonmp/cnm-purchase-api/internal/app/repo"
+	"github.com/ozonmp/cnm-purchase-api/internal/model"
 	"go.uber.org/atomic"
 )
 
@@ -77,7 +77,7 @@ func (q *RemoveQueue) removeEvents(e []*model.PurchaseEvent) {
 			IDsToRemove = append(IDsToRemove, e[i].ID)
 		}
 
-		err := q.repo.Remove(IDsToRemove)
+		err := q.repo.Remove(context.Background(), IDsToRemove)
 
 		if err != nil {
 			fmt.Printf("can't remove events[%+v] in repo. why[%v]. retry in  queue\n", IDsToRemove, err)

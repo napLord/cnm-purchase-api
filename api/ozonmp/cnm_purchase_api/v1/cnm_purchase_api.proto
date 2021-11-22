@@ -18,7 +18,7 @@ service CnmPurchaseApiService {
 
   rpc CreatePurchaseV1(CreatePurchaseV1Request) returns (CreatePurchaseV1Response) {
         option (google.api.http) = {
-          get: "/v1/purchases/create/{total_sum}"
+          post: "/v1/purchases/create/{total_sum}"
         };
    }
 
@@ -31,7 +31,7 @@ service CnmPurchaseApiService {
 
   rpc RemovePurchaseV1(RemovePurchaseV1Request) returns (RemovePurchaseV1Response) {
         option (google.api.http) = {
-          get: "/v1/purchases/remove/{purchase_id}"
+          post: "/v1/purchases/remove/{purchase_id}"
         };
    }
 }
