@@ -4,7 +4,6 @@ package ozonmp.cnm_purchase_api.v1;
 
 import "validate/validate.proto";
 import "google/api/annotations.proto";
-import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/ozonmp/cnm-purchase-api/pkg/cnm-purchase-api;cnm_purchase_api";
 
