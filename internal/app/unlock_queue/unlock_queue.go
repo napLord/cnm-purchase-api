@@ -6,16 +6,17 @@ import (
 	"time"
 
 	"github.com/gammazero/workerpool"
-	"github.com/napLord/cnm-purchase-api/internal/app/repo"
-	"github.com/napLord/cnm-purchase-api/internal/model"
+	"github.com/ozonmp/cnm-purchase-api/internal/app/repo"
+	"github.com/ozonmp/cnm-purchase-api/internal/model"
 	"go.uber.org/atomic"
 )
 
 const (
+	//MaxParallelEvents is  how much not unlocked events can Queue hold
 	MaxParallelEvents = 16
 )
 
-//queue of events to unlock in repo. if event unlock failed, retries it
+//UnlockQueue is a queue of events to unlock in repo. if event unlock failed, retries it
 type UnlockQueue struct {
 	ctx context.Context
 
@@ -31,6 +32,7 @@ type UnlockQueue struct {
 	unlockTimeout time.Duration
 }
 
+//NewUnlockQueue creates new UnlockQueue
 func NewUnlockQueue(
 	ctx context.Context,
 	repo repo.EventRepo,
@@ -54,6 +56,7 @@ func NewUnlockQueue(
 	return ret
 }
 
+//Unlock event
 func (q *UnlockQueue) Unlock(e *model.PurchaseEvent) {
 	if !q.running.Load() {
 		panic("UnlockQueue not running but unlock tryed")
@@ -74,7 +77,7 @@ func (q *UnlockQueue) unlockEvents(e []*model.PurchaseEvent) {
 			IDsToUnlock = append(IDsToUnlock, e[i].ID)
 		}
 
-		err := q.repo.Unlock(IDsToUnlock)
+		err := q.repo.Unlock(context.Background(), IDsToUnlock)
 
 		if err != nil {
 			fmt.Printf("can't unlock events[%+v] in repo. why[%v]. retry in  queue\n", IDsToUnlock, err)
@@ -118,6 +121,7 @@ func (q *UnlockQueue) run() {
 	}
 }
 
+//Close UnlockQueue
 func (q *UnlockQueue) Close() {
 	fmt.Printf("unlock_queue closing\n")
 

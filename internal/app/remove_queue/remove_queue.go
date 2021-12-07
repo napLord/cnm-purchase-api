@@ -6,16 +6,17 @@ import (
 	"time"
 
 	"github.com/gammazero/workerpool"
-	"github.com/napLord/cnm-purchase-api/internal/app/repo"
-	"github.com/napLord/cnm-purchase-api/internal/model"
+	"github.com/ozonmp/cnm-purchase-api/internal/app/repo"
+	"github.com/ozonmp/cnm-purchase-api/internal/model"
 	"go.uber.org/atomic"
 )
 
 const (
+	//MaxParallelEvents is  how much not unlocked events can Queue hold
 	MaxParallelEvents = 16
 )
 
-//queue of events to remove in repo. if event remove failed, retries it
+//RemoveQueue is a queue of events to remove in repo. if event remove failed, retries it
 type RemoveQueue struct {
 	ctx context.Context
 
@@ -31,6 +32,7 @@ type RemoveQueue struct {
 	removeTimeout time.Duration
 }
 
+//NewRemoveQueue creates new RemoveQueue
 func NewRemoveQueue(
 	ctx context.Context,
 	repo repo.EventRepo,
@@ -54,6 +56,7 @@ func NewRemoveQueue(
 	return ret
 }
 
+//Remove event
 func (q *RemoveQueue) Remove(e *model.PurchaseEvent) {
 	if !q.running.Load() {
 		panic("RemoveQueue not running but remove tryed")
@@ -74,7 +77,7 @@ func (q *RemoveQueue) removeEvents(e []*model.PurchaseEvent) {
 			IDsToRemove = append(IDsToRemove, e[i].ID)
 		}
 
-		err := q.repo.Remove(IDsToRemove)
+		err := q.repo.Remove(context.Background(), IDsToRemove)
 
 		if err != nil {
 			fmt.Printf("can't remove events[%+v] in repo. why[%v]. retry in  queue\n", IDsToRemove, err)
@@ -118,6 +121,7 @@ func (q *RemoveQueue) run() {
 	}
 }
 
+//Close RemoveQueue
 func (q *RemoveQueue) Close() {
 	fmt.Printf("remove_queue closing\n")
 

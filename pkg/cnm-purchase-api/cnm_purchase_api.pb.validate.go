@@ -42,17 +42,7 @@ func (m *Purchase) Validate() error {
 
 	// no validation rules for Id
 
-	// no validation rules for Foo
-
-	if v, ok := interface{}(m.GetCreated()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return PurchaseValidationError{
-				field:  "Created",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for TotalSum
 
 	return nil
 }
@@ -261,3 +251,454 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = DescribePurchaseV1ResponseValidationError{}
+
+// Validate checks the field values on CreatePurchaseV1Request with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *CreatePurchaseV1Request) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if m.GetTotalSum() < 0 {
+		return CreatePurchaseV1RequestValidationError{
+			field:  "TotalSum",
+			reason: "value must be greater than or equal to 0",
+		}
+	}
+
+	return nil
+}
+
+// CreatePurchaseV1RequestValidationError is the validation error returned by
+// CreatePurchaseV1Request.Validate if the designated constraints aren't met.
+type CreatePurchaseV1RequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CreatePurchaseV1RequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CreatePurchaseV1RequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CreatePurchaseV1RequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CreatePurchaseV1RequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CreatePurchaseV1RequestValidationError) ErrorName() string {
+	return "CreatePurchaseV1RequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CreatePurchaseV1RequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCreatePurchaseV1Request.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CreatePurchaseV1RequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CreatePurchaseV1RequestValidationError{}
+
+// Validate checks the field values on CreatePurchaseV1Response with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *CreatePurchaseV1Response) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for PurchaseId
+
+	return nil
+}
+
+// CreatePurchaseV1ResponseValidationError is the validation error returned by
+// CreatePurchaseV1Response.Validate if the designated constraints aren't met.
+type CreatePurchaseV1ResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CreatePurchaseV1ResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CreatePurchaseV1ResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CreatePurchaseV1ResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CreatePurchaseV1ResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CreatePurchaseV1ResponseValidationError) ErrorName() string {
+	return "CreatePurchaseV1ResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CreatePurchaseV1ResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCreatePurchaseV1Response.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CreatePurchaseV1ResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CreatePurchaseV1ResponseValidationError{}
+
+// Validate checks the field values on ListPurchasesV1Request with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *ListPurchasesV1Request) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if m.GetLimit() <= 0 {
+		return ListPurchasesV1RequestValidationError{
+			field:  "Limit",
+			reason: "value must be greater than 0",
+		}
+	}
+
+	if m.GetCursor() < 0 {
+		return ListPurchasesV1RequestValidationError{
+			field:  "Cursor",
+			reason: "value must be greater than or equal to 0",
+		}
+	}
+
+	return nil
+}
+
+// ListPurchasesV1RequestValidationError is the validation error returned by
+// ListPurchasesV1Request.Validate if the designated constraints aren't met.
+type ListPurchasesV1RequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListPurchasesV1RequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListPurchasesV1RequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListPurchasesV1RequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListPurchasesV1RequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListPurchasesV1RequestValidationError) ErrorName() string {
+	return "ListPurchasesV1RequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListPurchasesV1RequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListPurchasesV1Request.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListPurchasesV1RequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListPurchasesV1RequestValidationError{}
+
+// Validate checks the field values on ListPurchasesV1Response with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *ListPurchasesV1Response) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	for idx, item := range m.GetItems() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListPurchasesV1ResponseValidationError{
+					field:  fmt.Sprintf("Items[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for Cursor
+
+	return nil
+}
+
+// ListPurchasesV1ResponseValidationError is the validation error returned by
+// ListPurchasesV1Response.Validate if the designated constraints aren't met.
+type ListPurchasesV1ResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListPurchasesV1ResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListPurchasesV1ResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListPurchasesV1ResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListPurchasesV1ResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListPurchasesV1ResponseValidationError) ErrorName() string {
+	return "ListPurchasesV1ResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListPurchasesV1ResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListPurchasesV1Response.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListPurchasesV1ResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListPurchasesV1ResponseValidationError{}
+
+// Validate checks the field values on RemovePurchaseV1Request with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *RemovePurchaseV1Request) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if m.GetPurchaseId() <= 0 {
+		return RemovePurchaseV1RequestValidationError{
+			field:  "PurchaseId",
+			reason: "value must be greater than 0",
+		}
+	}
+
+	return nil
+}
+
+// RemovePurchaseV1RequestValidationError is the validation error returned by
+// RemovePurchaseV1Request.Validate if the designated constraints aren't met.
+type RemovePurchaseV1RequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RemovePurchaseV1RequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RemovePurchaseV1RequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RemovePurchaseV1RequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RemovePurchaseV1RequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RemovePurchaseV1RequestValidationError) ErrorName() string {
+	return "RemovePurchaseV1RequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RemovePurchaseV1RequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRemovePurchaseV1Request.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RemovePurchaseV1RequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RemovePurchaseV1RequestValidationError{}
+
+// Validate checks the field values on RemovePurchaseV1Response with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *RemovePurchaseV1Response) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Found
+
+	return nil
+}
+
+// RemovePurchaseV1ResponseValidationError is the validation error returned by
+// RemovePurchaseV1Response.Validate if the designated constraints aren't met.
+type RemovePurchaseV1ResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RemovePurchaseV1ResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RemovePurchaseV1ResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RemovePurchaseV1ResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RemovePurchaseV1ResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RemovePurchaseV1ResponseValidationError) ErrorName() string {
+	return "RemovePurchaseV1ResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RemovePurchaseV1ResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRemovePurchaseV1Response.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RemovePurchaseV1ResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RemovePurchaseV1ResponseValidationError{}

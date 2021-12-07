@@ -1,18 +1,19 @@
 # Builder
 
-ARG GITHUB_PATH=github.com/ozonmp/cnm-purchase-api
-
 FROM golang:1.16-alpine AS builder
-RUN apk add --update make git protoc protobuf protobuf-dev curl
+ARG GITHUB_PATH=github.com/ozonmp/lgc-location-api
+RUN apk add --update make  build-base git protoc protobuf protobuf-dev curl
 COPY . /home/${GITHUB_PATH}
 WORKDIR /home/${GITHUB_PATH}
 RUN make deps-go && make build-go
+#-gcflags="all=-N -l" 
 
 RUN go get github.com/go-delve/delve/cmd/dlv
 
 # gRPC Server
 
 FROM alpine:latest as server
+ARG GITHUB_PATH=github.com/ozonmp/lgc-location-api
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
