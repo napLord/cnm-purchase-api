@@ -1,3 +1,4 @@
+//nolint:dupl, revive
 package api
 
 import (
@@ -15,5 +16,18 @@ func (o *purchaseAPI) CreatePurchaseV1(
 ) (*pb.CreatePurchaseV1Response, error) {
 	log.Debug().Msg("request is [" + req.String() + "]")
 
-	return nil, status.Error(codes.Unimplemented, "method is unimplemented")
+	if err := req.Validate(); err != nil {
+		log.Error().Err(err).Msg("CreatePurchaseV1 - invalid argument")
+
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	purchaseID, err := o.repo.CreatePurchase(ctx, req.GetTotalSum())
+	if err != nil {
+		log.Error().Err(err).Msg("error during CreatePurchaseV1")
+
+		return nil, status.Error(codes.Internal, "")
+	}
+
+	return &pb.CreatePurchaseV1Response{PurchaseId: purchaseID}, nil
 }

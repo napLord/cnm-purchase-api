@@ -5,4 +5,4 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets:
-        - cnm-purchase-api:9100
+        - cnm-purchase-api:9101

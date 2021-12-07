@@ -1,3 +1,4 @@
+//nolint:dupl, revive
 package api
 
 import (
@@ -15,5 +16,18 @@ func (o *purchaseAPI) RemovePurchaseV1(
 ) (*pb.RemovePurchaseV1Response, error) {
 	log.Debug().Msg("request is [" + req.String() + "]")
 
-	return nil, status.Error(codes.Unimplemented, "method is unimplemented")
+	if err := req.Validate(); err != nil {
+		log.Error().Err(err).Msg("RemovePurchaseV1 - invalid argument")
+
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	found, err := o.repo.RemovePurchase(ctx, req.GetPurchaseId())
+	if err != nil {
+		log.Error().Err(err).Msg("error during RemovePurchaseV1")
+
+		return nil, status.Error(codes.Internal, "")
+	}
+
+	return &pb.RemovePurchaseV1Response{Found: found}, nil
 }

@@ -44,16 +44,6 @@ func (m *Purchase) Validate() error {
 
 	// no validation rules for TotalSum
 
-	if v, ok := interface{}(m.GetCreated()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return PurchaseValidationError{
-				field:  "Created",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -413,6 +403,20 @@ func (m *ListPurchasesV1Request) Validate() error {
 		return nil
 	}
 
+	if m.GetLimit() <= 0 {
+		return ListPurchasesV1RequestValidationError{
+			field:  "Limit",
+			reason: "value must be greater than 0",
+		}
+	}
+
+	if m.GetCursor() < 0 {
+		return ListPurchasesV1RequestValidationError{
+			field:  "Cursor",
+			reason: "value must be greater than or equal to 0",
+		}
+	}
+
 	return nil
 }
 
@@ -494,6 +498,8 @@ func (m *ListPurchasesV1Response) Validate() error {
 		}
 
 	}
+
+	// no validation rules for Cursor
 
 	return nil
 }

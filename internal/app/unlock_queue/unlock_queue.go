@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gammazero/workerpool"
-	"github.com/napLord/cnm-purchase-api/internal/app/repo"
-	"github.com/napLord/cnm-purchase-api/internal/model"
+	"github.com/ozonmp/cnm-purchase-api/internal/app/repo"
+	"github.com/ozonmp/cnm-purchase-api/internal/model"
 	"go.uber.org/atomic"
 )
 
@@ -77,7 +77,7 @@ func (q *UnlockQueue) unlockEvents(e []*model.PurchaseEvent) {
 			IDsToUnlock = append(IDsToUnlock, e[i].ID)
 		}
 
-		err := q.repo.Unlock(IDsToUnlock)
+		err := q.repo.Unlock(context.Background(), IDsToUnlock)
 
 		if err != nil {
 			fmt.Printf("can't unlock events[%+v] in repo. why[%v]. retry in  queue\n", IDsToUnlock, err)

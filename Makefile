@@ -66,7 +66,7 @@ generate-go: .generate-install-buf .generate-go .generate-finalize-go
 # ----------------------------------------------------------------
 
 .PHONY: deps
-deps: deps-go .deps-python
+deps: deps-go #.deps-python
 
 .PHONY: deps-go
 deps-go:
@@ -93,4 +93,5 @@ build-go: generate-go .build
 			-X 'github.com/$(SERVICE_PATH)/internal/config.version=$(VERSION)' \
 			-X 'github.com/$(SERVICE_PATH)/internal/config.commitHash=$(COMMIT_HASH)' \
 		" \
+		-gcflags="all=-N -l" \
 		-o ./bin/grpc-server$(shell go env GOEXE) ./cmd/grpc-server/main.go

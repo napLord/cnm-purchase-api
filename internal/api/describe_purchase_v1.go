@@ -3,10 +3,12 @@ package api
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/ozonmp/cnm-purchase-api/internal/repo"
 	pb "github.com/ozonmp/cnm-purchase-api/pkg/cnm-purchase-api"
 )
 
@@ -25,7 +27,11 @@ func (o *purchaseAPI) DescribePurchaseV1(
 	if err != nil {
 		log.Error().Err(err).Msg("DescribePurchaseV1 -- failed")
 
-		return nil, status.Error(codes.Internal, err.Error())
+		if errors.Is(err, repo.ErrNoPurchases) {
+			return nil, status.Error(codes.Internal, "no purchases")
+		}
+
+		return nil, status.Error(codes.Internal, "")
 	}
 
 	if purchase == nil {
